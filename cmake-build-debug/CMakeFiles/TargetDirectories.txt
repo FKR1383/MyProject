@@ -1,0 +1,3 @@
+D:/Sharif/Term1/Books/Mabani/MyProject/cmake-build-debug/CMakeFiles/edit_cache.dir
+D:/Sharif/Term1/Books/Mabani/MyProject/cmake-build-debug/CMakeFiles/MyProject.dir
+D:/Sharif/Term1/Books/Mabani/MyProject/cmake-build-debug/CMakeFiles/rebuild_cache.dir
