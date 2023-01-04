@@ -31,12 +31,14 @@ void program()
     // this use for saving commands
     char *command = calloc(2000000000 , sizeof(char));
     gets(command);
-    // printf("%s\n" , command); // this is for debugging
-    char *operation = strtok(command , " ");
-    // printf("%s\n" , operation); // this is for debugging
+    // help is an extra string that is equal to command
+    char *help = calloc(strlen(command) + 1 ,  sizeof(char));
+    strcpy(help , command);
+    char *operation = strtok(help , " ");
     decide(command , operation);
+    // optimizing memory
     free(command);
-    // free the memory that saves our command
+    free(operation);
 }
 
 void decide(char *command , char *operation)
@@ -45,6 +47,10 @@ void decide(char *command , char *operation)
     if (strcmp(operation , "createfile") == 0)
     {
         // new command is our command without first word
+        char *newcommand = strchr(command, ' ');
+        if(newcommand != NULL)
+            command = newcommand + 1;
+        // now we must process newcommand
 
     }
 }
