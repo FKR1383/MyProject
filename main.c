@@ -3,13 +3,17 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdbool.h>
+#include <windows.h>
 
 void program(); // This function is the command giver in our VIM
 void decide(char * , char *); // This function is the processor of our commands
 void createfile(char *); // this function creates folders and a text file
 void insertstr(char *); // this function insert some texts in our .txt file
 FILE* openfile(char *); // this function open file for edit and adding text and return pointer to that file
-void editing_text(char *); // this function use for insert text in file (a child of insertstr)
+void editing_text(FILE * ,char *); // this function use for insert text in file (a child of insertstr)
+void finding_position(int *,int *,char *); // this function use for finding the position of the text must be added or removed
+void put_text(FILE * , int , int , char* , int , bool); // this function uses for putting our pointer to custom line and column
 
 /*
  * first Name: Farzam
@@ -266,7 +270,8 @@ void insertstr(char *command)
             i++;
         }
         text_pos[j] = '\0';
-        editing_text(text_pos);
+        editing_text(now , text_pos);
+        return;
     }
     else
     {
@@ -352,7 +357,7 @@ FILE *openfile(char *command)
         }
 }
 
-void editing_text(char *text_pos)
+void editing_text(FILE *now ,char *text_pos)
 {
     char *help = calloc(strlen(text_pos)+1 , sizeof(text_pos));
     strcpy(help , text_pos);
@@ -360,6 +365,7 @@ void editing_text(char *text_pos)
     if (str == NULL)
     {
         printf("invalid command\n");
+        fclose(now);
         return;
     }
     if (strcmp(str , "--str") == 0)
@@ -369,6 +375,7 @@ void editing_text(char *text_pos)
             text_pos = newcommand + 1;
         else {
             printf("invalid command\n");
+            fclose(now);
             return;
         }
         char *past_command = calloc(strlen(text_pos) , sizeof(char));
@@ -387,6 +394,7 @@ void editing_text(char *text_pos)
             if (last == 0)
             {
                 printf("invalid command\n");
+                fclose(now);
                 return;
             }
             int i;
@@ -403,15 +411,19 @@ void editing_text(char *text_pos)
             if (text == NULL)
             {
                 printf("invalid command\n");
+                fclose(now);
                 return;
             }
             text_pos = text_pos + strlen(text) + 1;
         }
         // our text saved in text variable
+        char *text2 = calloc(strlen(text) , sizeof(text));
+        strcpy(text2 , text);
         // our text_pos now just have pos
         if (text_pos == NULL)
         {
             printf("invalid command\n");
+            fclose(now);
             return;
         }
         strcpy(past_command , text_pos);
@@ -419,22 +431,152 @@ void editing_text(char *text_pos)
         if (strcmp(pos , "--pos") == 0)
         {
             past_command = past_command + strlen(pos) + 1;
-            // edame darad .....
+            // checking of having : or no
+            // nums checking all inputing types are number or not (except ':')
+            bool have_td = false , nums = true;
+            for (int i = 0; i != strlen(past_command); i++)
+            {
+                if (past_command[i] < '0' || past_command[i] > '9')
+                {
+                    if (past_command[i] == ':') {
+                        if (have_td)
+                            nums = false;
+                        have_td = true;
+                    }
+                    else
+                        nums = false;
+                }
+            }
+            if (nums && have_td)
+            {
+                int line , col;
+                finding_position(&line  ,&col , past_command);
+                // now we want copy next characters of file and then insert text on position
+                fseek(now , 0 , SEEK_END);
+                int max_size_of_copy = ftell(now);
+                FILE *start;
+                fseek(now , 0 , SEEK_SET);
+                start = now;
+                put_text(start , line , col , text2 , max_size_of_copy , false);
+                // start is at line and col
+            }
+            else
+            {
+                printf("invalid command\n");
+                fclose(now);
+                return;
+            }
         }
         else
         {
             printf("invalid command\n");
+            fclose(now);
             return;
         }
     }
     else
     {
         printf("invalid command\n");
+        fclose(now);
         return;
     }
 }
 
+void finding_position(int *line , int *col , char *pos)
+{
+    int i = 0 , j = 0 , k;
+    for (k = 0; pos[k] != ':'; k++)
+    {
+        i *= 10;
+        i += (pos[k]  - '0');
+    }
+    k++;
+    while (k != strlen(pos))
+    {
+        j *= 10;
+        j += (pos[k] - '0');
+        k++;
+    }
+    *line = i;
+    *col = j;
+    return;
+}
+
+void put_text(FILE *pointer , int line , int col , char *text , int max_size_of_copy , bool spacing)
+{
+    // pointer is on the first character of file
+    int i = 0;
+    char a = '\0';
+    if (line != 1) {
+        while (a != EOF) {
+            a = fgetc(pointer);
+            if (a == '\n')
+                i++;
+            if (i == line - 1) {
+                break;
+            }
+        }
+    }
+    if (i != line-1)
+    {
+        for (int j = 0; j != line-i-1; j++)
+            fprintf(pointer , "%c" , '\n');
+    }
+
+    int j = 0;
+    bool flag = false;
+    if (i == line-1) {
+        for (; j < col; j++) {
+            a = fgetc(pointer);
+            if (a == '\n' || a == EOF) {
+                flag = true;
+                break;
+            }
+        }
+    }
+    else
+        flag = true;
+    if (flag)
+    {
+        char *spaces = calloc(col-j+2 , sizeof(char));
+        int k;
+        for (k = 0; k != col-j; k++)
+            spaces[k] = ' ';
+        spaces[k] = '\0';
+        fseek(pointer , 0 , SEEK_SET);
+        put_text(pointer , line , j , spaces , max_size_of_copy , true);
+        fseek(pointer , 0 , SEEK_SET);
+        put_text(pointer , line , col , text , max_size_of_copy , false);
+        return;
+    }
+        int size = ftell(pointer);
+            char *copy = calloc(max_size_of_copy, sizeof(char));
+            i = 0;
+            a = '\0';
+            while (a != EOF) {
+                a = fgetc(pointer);
+                copy[i] = a;
+                i++;
+            }
+            copy[i - 1] = '\0';
+            // copy is the remaining text after pos
+            fseek(pointer, size, SEEK_SET);
+            for (i = 0; i != strlen(text); i++)
+            {
+                fprintf(pointer , "%c" ,text[i]);
+            }
+            for (int i = 0; i != strlen(copy); i++)
+            {
+                fprintf(pointer , "%c" , copy[i]);
+            }
+        if (!spacing)
+        fclose(pointer);
+}
+
+
 /*
  * Remember!
  * 1 - invalid commands must place at the end of the decide function!
+ * an example fucks my ass, check it later
+ * \n and \\n ...
  */
