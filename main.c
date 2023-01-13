@@ -11,6 +11,10 @@ FILE *open_or_create_file(char * , char*); // this function open an existing fil
 void insertstr(char *); // command 2
 FILE *find_path(char * , char * , int *); // this function find path of a command
 void find_string(char * , char * , int *); // this function find string after --str and saves it ro second argument
+bool find_position(char * , int * , int *); // this function find positon after --pos and if it has bad syntax return 0
+bool go_to_position(FILE * , int , int , char *); // this function moves the file pointer to the supposed line and column
+void save_text(FILE *, char *); // this function copies from file pointer to EOF in second argument
+void back_the_text(FILE * , char * , int , char *); // this function pastes the copied text to the file pointer, third argument is required spaces
 
 /*
  * first Name: Farzam
@@ -135,9 +139,39 @@ void insertstr(char *command)
         printf("invalid command\n");
         return;
     }
-    char *string = calloc(strlen(resume) + 1 , sizeof(char));
+    char *string = (char *)calloc(strlen(resume) + 1 , sizeof(char));
+    char *help = (char *) calloc(maximum_size_of_input , sizeof(char));
+    strcpy(help , resume);
     find_string(resume , string , &skip);
-    printf("%s\n" , string);
+    strcpy(resume , help);
+    resume += (skip + 6);
+    if (resume == NULL || resume[1] == '\0') {
+        printf("invalid command\n");
+        return;
+    }
+    resume++;
+    int line = 0 , col = 0;
+    bool flag = find_position(resume , &line , &col);
+    if (!flag) {
+        printf("invalid command\n");
+        return;
+    }
+    go_to_position(file , line , col , "insert");
+    go_to_position(file , line , col , "insert");
+    char *copy = (char *)calloc(maximum_size_of_input , sizeof(char));
+    save_text(file , copy);
+    fseek(file , 0 , SEEK_SET);
+    FILE *file2 = file;
+    go_to_position(file2 ,line , col , "insert");
+    FILE *file3;
+    fseek(file2 , ftell(file2), SEEK_SET);
+    file3 = file2;
+    back_the_text(file3 , string , 0 , "second_time");
+    FILE *file4;
+    fseek(file3 , ftell(file3) , SEEK_SET);
+    file4 = file3;
+    back_the_text(file4 , copy ,0 , "second_time");
+    fclose(file);
 }
 
 FILE *find_path(char *resume, char *type , int *skip)
@@ -178,36 +212,191 @@ FILE *find_path(char *resume, char *type , int *skip)
 void find_string(char *resume , char *string , int *skip)
 {
     // this function starts with --str
+    char *help = (char *)calloc(maximum_size_of_input , sizeof(char));
     strtok(resume , " ");
     if (resume == NULL || strcmp(resume , "--str") != 0) {
         printf("invalid command\n");
         return;
     }
     resume = strtok(NULL , "");
+    strcpy(help , resume);
     if (resume == NULL){
         printf("invalid command\n");
         return;
     }
     if (resume[0] != '\"') {
-        strcpy(string , strtok(resume , " "));
-        *skip = strlen(string);
+        strtok(resume , " ");
+        int j = 0 , i = 0;
+        for (; i != strlen(resume); i++)
+        {
+            if (resume[i] == '\\') {
+                if (resume[i+1] == 'n') {
+                    i++;
+                    string[j] = '\n';
+                    j++;
+                } else {
+                    string[j] = resume[i+1];
+                    i++;
+                    j++;
+                }
+            } else {
+                string[j] = resume[i];
+                j++;
+            }
+        }
+        *skip = i;
+        strcpy(resume , help);
         return;
     }
     else {
-        int i = 0;
-        for (; ; i++)
-        {
-            string[i] = resume[i+1];
-            if (string[i] == '\"' && i != 0) {
-                if (string[i-1] != '\\')
-                    break;
-                else {
-
+        int j = 0 , i = 0;
+        for (; i != strlen(resume); i++) {
+            if (resume[i+1] == '\\') {
+                if (resume[i+2] == 'n'){
+                    string[j] = '\n';
+                    j++;
+                    i++;
+                } else {
+                    string[j] = resume[i+2];
+                    i++;
+                    j++;
                 }
+            } else if (resume[i+1] == '\"') {
+                break;
+            } else {
+                string[j] = resume[i+1];
+                j++;
             }
         }
-        string[i] = '\0';
-        *skip = strlen(string);
+        *skip = i+2;
+        strcpy(resume , help);
         return;
     }
+    return;
+}
+
+bool find_position(char *pos , int *line , int *col)
+{
+    // this function starts with --pos
+    strtok(pos , " ");
+    if (pos == NULL || strcmp(pos , "--pos") != 0) {
+        return false;
+    }
+    pos = strtok(NULL , "");
+    *line = *col = 0;
+    int i;
+    bool is_two_dots = false;
+    for (i = 0; i != strlen(pos); i++) {
+        if ((pos[i] < '0' || pos[i] > '9') && pos[i] != ':') {
+            return false;
+        }
+        if (i == 0 && pos[i] == ':') {
+            return false;
+        }
+        if (pos[i] == ':') {
+            i++;
+            is_two_dots = true;
+            break;
+        }
+        *line *= 10;
+        *line += (pos[i] - '0');
+    }
+    if (i == strlen(pos) || !is_two_dots)
+        return false;
+    while (i != strlen(pos)) {
+        if (pos[i] < '0' || pos[i] > '9') {
+            return false;
+        }
+        *col *= 10;
+        *col += (pos[i] - '0');
+        i++;
+    }
+    return true;
+}
+
+bool go_to_position(FILE *file , int line , int col , char *mode)
+{
+    fseek(file , 0 , SEEK_SET);
+    int now_line = 1 , now_col = 0;
+    char now_char = '\0';
+    while (line != 1 && now_char != EOF) {
+        now_char = fgetc(file);
+        if (now_char == EOF)
+            break;
+        if (now_char == '\n')
+            now_line++;
+        if (now_line == line)
+            break;
+    }
+    if (now_line < line) {
+        if (strcmp(mode , "insert") != 0)
+            return false;
+        while (line > now_line) {
+            fputc('\n' , file);
+            now_line++;
+        }
+    }
+    if (strcmp(mode , "help") == 0)
+        return true;
+    if (now_char == EOF) {
+        if (strcmp(mode , "insert") != 0) {
+            return false;
+        }
+        fseek(file , 0 , SEEK_END);
+        for (int i = 0; i != col; i++)
+            fputc(' ' , file);
+    } else {
+        while (now_col < col) {
+            now_char = fgetc(file);
+            if (now_char != '\n' && now_char != EOF) {
+                now_col++;
+            }
+            else
+                break;
+        }
+        if (now_col < col) {
+            if (strcmp(mode , "insert") != 0) {
+                return false;
+            }
+            char *copy = (char *) calloc(maximum_size_of_input , sizeof(char));
+            save_text(file , copy);
+            go_to_position(file , line , col , "help");
+            for (int i = 0; i != now_col; i++) {
+                now_char = fgetc(file);
+            }
+            if (now_char == EOF) {
+                fseek(file , 0 , SEEK_END);
+            }
+            fseek(file , ftell(file) , SEEK_SET);
+            FILE *file2 = file;
+            back_the_text(file2 , copy , col - now_col , "first_time");
+        }
+    }
+}
+
+void save_text(FILE *file , char *copy)
+{
+    int i = 0;
+    char now = '\0';
+    while (now != EOF) {
+        now = fgetc(file);
+        if (now != EOF) {
+            copy[i] = now;
+            i++;
+        }
+    }
+    copy[i] = '\0';
+    return;
+}
+
+void back_the_text(FILE *file , char *copy , int spaces , char *mode)
+{
+    if (strcmp(mode , "first_time") == 0) {
+        for (int i = 0; i != spaces; i++)
+            fputc(' ', file);
+        fputc('\n', file);
+    }
+    for (int i = 0; i != strlen(copy); i++)
+       fputc(copy[i] , file);
+    return;
 }
