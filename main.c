@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <sys/stat.h>
+#include <windows.h>
 #define maximum_size_of_input 1000000
 
 void main_function(); // this function is the input receiver of the program
@@ -22,7 +23,8 @@ void find_first_position_with_size(FILE * , int , int , int , int); // this func
 // file pointer , line , col , size , mode (-b or -f)
 void save_text_from_first(FILE * , char *); // this function copies some texts that starts from first of file
 void append(FILE * , char *); // this function appends a text to the end of file
-
+void copystr(char *); // command 5
+void cutstr(char *); // command 6
 
 
 
@@ -55,6 +57,8 @@ void main_function()
         cat(input);
     } else if (strcmp (input , "removestr") == 0) {
         removestr(input);
+    } else if (strcmp (input , "copystr") == 0) {
+        copystr(input);
     }
     else {
         printf("invalid command\n");
@@ -617,6 +621,115 @@ void save_text_from_first(FILE *file , char *copy) {
 void append(FILE *file , char *text){
     for (int i = 0; i != strlen(text); i++)
         fputc(text[i] , file);
+}
+
+void copystr(char *command) {
+    command = strtok(NULL , "");
+    char *resume = (char *) calloc(maximum_size_of_input , sizeof(char));
+    strcpy(resume , command);
+    strtok(command , " ");
+    if (command == NULL || strcmp(command , "--file") != 0) {
+        printf("invalid command\n");
+        return;
+    }
+    int skip;
+    FILE *file = find_path(command , "r+", &skip);
+    if (file == NULL) {
+        printf("invalid command\n");
+        return;
+    }
+    resume += 7 + skip;
+    if (resume == NULL || resume[0] != ' ') {
+        printf("invalid command\n");
+        return;
+    }
+    resume += 1;
+    if (resume == NULL) {
+        printf("invalid command\n");
+        return;
+    }
+    char *pos = (char *)calloc(strlen(resume) + 1 ,sizeof(char));
+    char *pos2 = (char *)calloc(strlen(resume) + 1 ,sizeof(char));
+    strcpy(pos , resume);
+    pos2[0] = '\0';
+    int line , col;
+    strtok(pos , " ");
+    if (pos == NULL) {
+        printf("invalid command\n");
+        return;
+    }
+    strcat(pos2 , pos);
+    pos = strtok(NULL , " ");
+    if (pos == NULL) {
+        printf("invalid command\n");
+        return;
+    }
+    strcat(pos2 , " ");
+    strcat(pos2 , pos);
+    bool flag = find_position(pos2 , &line , &col);
+    if (!flag) {
+        printf("invalid command\n");
+        return;
+    }
+    strcpy(resume , pos);
+    resume += strlen(pos2);
+    if (resume == NULL || resume[0] != ' ') {
+        printf("invalid command\n");
+        return;
+    }
+    resume++;
+    if (resume == NULL) {
+        printf("invalid command\n");
+        return;
+    }
+    strtok(resume , " ");
+    resume = strtok(NULL , " ");
+    if (resume == NULL || strcmp(resume , "-size") != 0) {
+        printf("invalid command\n");
+        return;
+    }
+    resume = strtok(NULL , " ");
+    if (resume == NULL) {
+        printf("invalid command\n");
+        return;
+    }
+    int size;
+    flag = find_size(resume , &size);
+    if (!flag) {
+        printf("invalid command\n");
+        return;
+    }
+    resume = strtok(NULL , " ");
+    if (resume == NULL) {
+        printf("invalid command\n");
+        return;
+    }
+    int direction;
+    if (strcmp(resume , "-b") == 0)
+        direction = -1;
+    else if (strcmp(resume , "-f") == 0)
+        direction = 1;
+    else {
+        printf("invalid command\n");
+        return;
+    }
+    find_first_position_with_size(file , line , col , size , direction);
+    FILE *file2 = file;
+    char *copy = (char *)calloc(maximum_size_of_input , sizeof(char));
+    int i;
+    for (i = 0; i != size; i++)
+        copy[i] = fgetc(file2);
+    copy[i] = '\0';
+    const size_t len = strlen(copy) + 1;
+    HGLOBAL hMem =  GlobalAlloc(GMEM_MOVEABLE, len);
+    memcpy(GlobalLock(hMem), copy, len);
+    GlobalUnlock(hMem);
+    OpenClipboard(0);
+    EmptyClipboard();
+    SetClipboardData(CF_TEXT, hMem);
+    CloseClipboard();
+    fclose(file);
+    fclose(file2);
 }
 
 // invalid inputs must check
