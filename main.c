@@ -5,19 +5,20 @@
 #include <sys/stat.h>
 #include <windows.h>
 #define maximum_size_of_input 1000000
+bool is_cut = false;
 
 void main_function(); // this function is the input receiver of the program
 void createfile(char *); // this function creates a .txt file with specified path
 FILE *open_or_create_file(char * , char*); // this function open an existing file or creates a new file by supposed path
-void insertstr(char *); // command 2
+void insertstr(char * , char * , char *); // command 2
 FILE *find_path(char * , char * , int *); // this function find path of a command
-void find_string(char * , char * , int *); // this function find string after --str and saves it ro second argument
+bool find_string(char * , char * , int *); // this function find string after --str and saves it ro second argument
 bool find_position(char * , int * , int *); // this function find positon after --pos and if it has bad syntax return 0
 bool go_to_position(FILE * , int , int , char * ,int *); // this function moves the file pointer to the supposed line and column
 void save_text(FILE *, char *); // this function copies from file pointer to EOF in second argument
 void back_the_text(FILE * , char * , int , char *); // this function pastes the copied text to the file pointer, third argument is required spaces
 void cat(char *); // command 3
-void removestr(char *); // command 4
+void removestr(char * , char *); // command 4
 bool find_size(char * , int *); // this function converts a string to an integer
 void find_first_position_with_size(FILE * , int , int , int , int); // this function finds the first position (according to -b and -f) and pushes the file pointer to that position
 // file pointer , line , col , size , mode (-b or -f)
@@ -25,6 +26,7 @@ void save_text_from_first(FILE * , char *); // this function copies some texts t
 void append(FILE * , char *); // this function appends a text to the end of file
 void copystr(char *); // command 5
 void cutstr(char *); // command 6
+void pastestr(char *); // command 7
 
 
 
@@ -52,13 +54,17 @@ void main_function()
     if (strcmp(input , "createfile") == 0){
         createfile(input);
     } else if (strcmp(input , "insertstr") == 0) {
-        insertstr(input);
+        insertstr(input , "unnormal" , "");
     } else if (strcmp (input , "cat") == 0){
         cat(input);
     } else if (strcmp (input , "removestr") == 0) {
-        removestr(input);
+        removestr(input , "nothing");
     } else if (strcmp (input , "copystr") == 0) {
         copystr(input);
+    } else if (strcmp (input ,  "cutstr") == 0) {
+        cutstr(input);
+    } else if (strcmp (input , "pastestr") == 0) {
+        pastestr(input);
     }
     else {
         printf("invalid command\n");
@@ -130,7 +136,7 @@ FILE *open_or_create_file(char *path , char *type)
     }
 }
 
-void insertstr(char *command)
+void insertstr(char *command , char *mode , char *paste)
 {
     command = strtok(NULL , "");
     char *resume = (char *) calloc(maximum_size_of_input , sizeof(char));
@@ -157,16 +163,22 @@ void insertstr(char *command)
         return;
     }
     char *string = (char *)calloc(strlen(resume) + 1 , sizeof(char));
-    char *help = (char *) calloc(maximum_size_of_input , sizeof(char));
-    strcpy(help , resume);
-    find_string(resume , string , &skip);
-    strcpy(resume , help);
-    resume += (skip + 6);
-    if (resume == NULL || resume[1] == '\0') {
-        printf("invalid command\n");
-        return;
+    if (strcmp(mode , "unnormal") == 0) {
+        char *help = (char *) calloc(maximum_size_of_input, sizeof(char));
+        strcpy(help, resume);
+        bool flag = find_string(resume, string, &skip);
+        if (!flag)
+            return;
+        strcpy(resume, help);
+        resume += (skip + 6);
+        if (resume == NULL || resume[1] == '\0') {
+            printf("invalid command\n");
+            return;
+        }
+        resume++;
+    } else {
+        strcpy(string , paste);
     }
-    resume++;
     int line = 0 , col = 0;
     bool flag = find_position(resume , &line , &col);
     if (!flag) {
@@ -227,70 +239,67 @@ FILE *find_path(char *resume, char *type , int *skip)
     }
 }
 
-void find_string(char *resume , char *string , int *skip)
+bool find_string(char *resume , char *string , int *skip)
 {
     // this function starts with --str
-    char *help = (char *)calloc(maximum_size_of_input , sizeof(char));
-    strtok(resume , " ");
-    if (resume == NULL || strcmp(resume , "--str") != 0) {
-        printf("invalid command\n");
-        return;
-    }
-    resume = strtok(NULL , "");
-    strcpy(help , resume);
-    if (resume == NULL){
-        printf("invalid command\n");
-        return;
-    }
-    if (resume[0] != '\"') {
-        strtok(resume , " ");
-        int j = 0 , i = 0;
-        for (; i != strlen(resume); i++)
-        {
-            if (resume[i] == '\\') {
-                if (resume[i+1] == 'n') {
-                    i++;
-                    string[j] = '\n';
-                    j++;
+        char *help = (char *) calloc(maximum_size_of_input, sizeof(char));
+        strtok(resume, " ");
+        if (resume == NULL || strcmp(resume, "--str") != 0) {
+            printf("invalid command\n");
+            return false;
+        }
+        resume = strtok(NULL, "");
+        strcpy(help, resume);
+        if (resume == NULL) {
+            printf("invalid command\n");
+            return false;
+        }
+        if (resume[0] != '\"') {
+            strtok(resume, " ");
+            int j = 0, i = 0;
+            for (; i != strlen(resume); i++) {
+                if (resume[i] == '\\') {
+                    if (resume[i + 1] == 'n') {
+                        i++;
+                        string[j] = '\n';
+                        j++;
+                    } else {
+                        string[j] = resume[i + 1];
+                        i++;
+                        j++;
+                    }
                 } else {
-                    string[j] = resume[i+1];
-                    i++;
+                    string[j] = resume[i];
                     j++;
                 }
-            } else {
-                string[j] = resume[i];
-                j++;
             }
-        }
-        *skip = i;
-        strcpy(resume , help);
-        return;
-    }
-    else {
-        int j = 0 , i = 0;
-        for (; i != strlen(resume); i++) {
-            if (resume[i+1] == '\\') {
-                if (resume[i+2] == 'n'){
-                    string[j] = '\n';
-                    j++;
-                    i++;
+            *skip = i;
+            strcpy(resume, help);
+            return true;
+        } else {
+            int j = 0, i = 0;
+            for (; i != strlen(resume); i++) {
+                if (resume[i + 1] == '\\') {
+                    if (resume[i + 2] == 'n') {
+                        string[j] = '\n';
+                        j++;
+                        i++;
+                    } else {
+                        string[j] = resume[i + 2];
+                        i++;
+                        j++;
+                    }
+                } else if (resume[i + 1] == '\"') {
+                    break;
                 } else {
-                    string[j] = resume[i+2];
-                    i++;
+                    string[j] = resume[i + 1];
                     j++;
                 }
-            } else if (resume[i+1] == '\"') {
-                break;
-            } else {
-                string[j] = resume[i+1];
-                j++;
             }
+            *skip = i + 2;
+            strcpy(resume, help);
+            return true;
         }
-        *skip = i+2;
-        strcpy(resume , help);
-        return;
-    }
-    return;
 }
 
 bool find_position(char *pos , int *line , int *col)
@@ -424,7 +433,7 @@ void back_the_text(FILE *file , char *copy , int spaces , char *mode)
         fputc('\n', file);
     }
     for (int i = 0; i != strlen(copy); i++)
-       fputc(copy[i] , file);
+        fputc(copy[i] , file);
     return;
 }
 
@@ -458,7 +467,7 @@ void cat(char *command)
     fclose(file);
 }
 
-void removestr(char *command)
+void removestr(char *command , char *mode)
 {
     char *path = calloc(maximum_size_of_input , sizeof(char));
     command = strtok(NULL , "");
@@ -556,19 +565,32 @@ void removestr(char *command)
     char *copy1 = (char *)calloc(maximum_size_of_input , sizeof(char));
     save_text_from_first(file2 , copy1);
     char *copy2 = (char *)calloc(maximum_size_of_input , sizeof(char));
-    for (int i = 0; i != size; i++) {
-        fgetc(file2);
+    char clipboard[size+1];
+    int i;
+    for (i = 0; i != size; i++) {
+        clipboard[i] = fgetc(file2);
+    }
+    clipboard[i] = '\0';
+    if (strcmp(mode , "cut") == 0) {
+        const size_t len = strlen(clipboard) + 1;
+        HGLOBAL hMem =  GlobalAlloc(GMEM_MOVEABLE, len);
+        memcpy(GlobalLock(hMem), clipboard, len);
+        GlobalUnlock(hMem);
+        OpenClipboard(0);
+        EmptyClipboard();
+        SetClipboardData(CF_TEXT, hMem);
+        CloseClipboard();
+        is_cut = true;
     }
     save_text(file2 , copy2);
     fclose(file2);
+    fclose(file);
     strtok(path , " ");
     int null;
     FILE *file3 = find_path(path , "w+" , &null);
     append(file3 , copy1);
     append(file3 , copy2);
     fclose(file3);
-    fclose(file);
-    fclose(file2);
 }
 
 bool find_size(char *size , int *result){
@@ -730,7 +752,32 @@ void copystr(char *command) {
     CloseClipboard();
     fclose(file);
     fclose(file2);
+    is_cut = false;
+}
+
+void cutstr(char *command) {
+    removestr(command , "cut");
+    // har chi talash kardam ke tarkibi az copy va remove beshe, nashod :(
+}
+
+void pastestr(char *command) {
+    HANDLE h;
+    OpenClipboard(NULL);
+    h = GetClipboardData(CF_TEXT);
+    char *paste = (char *)h;
+    CloseClipboard();
+    insertstr(command , "normal" , paste);
+    if (is_cut == true) {
+        OpenClipboard(NULL);
+        EmptyClipboard();
+        CloseClipboard();
+        is_cut = false;
+    }
+    return;
 }
 
 // invalid inputs must check
 // eof error in removestr
+// checking pos for all :(
+// .txt is not important :(
+// backslash gheir mortabet
