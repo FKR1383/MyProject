@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <windows.h>
-#define maximum_size_of_input 1000000
-bool is_cut = false;
+#define maximum_size_of_input 1000
+bool is_cut = false , is_find = false;
 
 void main_function(); // this function is the input receiver of the program
 void createfile(char *); // this function creates a .txt file with specified path
@@ -27,6 +27,8 @@ void append(FILE * , char *); // this function appends a text to the end of file
 void copystr(char *); // command 5
 void cutstr(char *); // command 6
 void pastestr(char *); // command 7
+void find(char *); // command 8
+void copy_all_text_of_file(FILE * , char *); // copying all text in a string
 
 
 
@@ -65,6 +67,8 @@ void main_function()
         cutstr(input);
     } else if (strcmp (input , "pastestr") == 0) {
         pastestr(input);
+    } else if (strcmp (input , "find") == 0) {
+        find(input);
     }
     else {
         printf("invalid command\n");
@@ -269,8 +273,17 @@ bool find_string(char *resume , char *string , int *skip)
                         j++;
                     }
                 } else {
-                    string[j] = resume[i];
-                    j++;
+                    if (is_find) {
+                        if (resume[i] == '*') {
+                            string[j] = 254;
+                        }
+                        else
+                            string[j] = resume[i];
+                        j++;
+                    } else {
+                        string[j] = resume[i];
+                        j++;
+                    }
                 }
             }
             *skip = i;
@@ -292,8 +305,16 @@ bool find_string(char *resume , char *string , int *skip)
                 } else if (resume[i + 1] == '\"') {
                     break;
                 } else {
-                    string[j] = resume[i + 1];
-                    j++;
+                    if (is_find) {
+                        if (resume[i+1] == '*') {
+                            string[j] = 254;
+                        } else
+                            string[j] = resume[i+1];
+                        j++;
+                    } else {
+                        string[j] = resume[i + 1];
+                        j++;
+                    }
                 }
             }
             *skip = i + 2;
@@ -774,6 +795,49 @@ void pastestr(char *command) {
         is_cut = false;
     }
     return;
+}
+
+void find(char *command) {
+    char *newcommand = (char *) calloc(maximum_size_of_input , sizeof(char));
+    int skip = 0;
+    command = strtok(NULL , "");
+    strcpy(newcommand , command);
+    char *string = (char *)calloc(maximum_size_of_input , sizeof(char));
+    is_find = true;
+    find_string(command , string , &skip);
+    is_find = false;
+    newcommand += (7 + skip);
+    strtok(newcommand , " ");
+    FILE *file = find_path(command , "r+" , &skip);
+    // edame dastoor shamele -folan
+    char *text_of_file = (char *) calloc(1000000000 , sizeof(char));
+    copy_all_text_of_file(file , text_of_file);
+    fclose(file);
+    /*int j = 0;
+    for (int i = 0; i <= strlen(text_of_file); i++) {
+        if (j == strlen(string)) {
+            printf("%d\n" , i-strlen(string));
+            break;
+        }
+        if (text_of_file[i] == string[j]) {
+            j++;
+        } else {
+            i -= j;
+            j = 0;
+        }
+    }*/
+}
+
+void copy_all_text_of_file(FILE *file , char *text) {
+    int i = 0;
+    char now_char = '\0';
+    while (now_char != EOF) {
+        now_char = fgetc(file);
+        if (now_char != EOF)
+            text[i] = now_char;
+        i++;
+    }
+    text[i] = '\0';
 }
 
 // invalid inputs must check
