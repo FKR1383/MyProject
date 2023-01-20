@@ -809,23 +809,128 @@ void find(char *command) {
     newcommand += (7 + skip);
     strtok(newcommand , " ");
     FILE *file = find_path(command , "r+" , &skip);
+    if (file == NULL)
+        return;
     // edame dastoor shamele -folan
     char *text_of_file = (char *) calloc(1000000000 , sizeof(char));
     copy_all_text_of_file(file , text_of_file);
     fclose(file);
-    /*int j = 0;
-    for (int i = 0; i <= strlen(text_of_file); i++) {
-        if (j == strlen(string)) {
-            printf("%d\n" , i-strlen(string));
+    char word_by_word[maximum_size_of_input][maximum_size_of_input];
+    int words = 0;
+    strtok(string , " ");
+    while (string != NULL) {
+        strcpy(word_by_word[words] , string);
+        string = strtok(NULL , " ");
+        words++;
+    }
+    for (int i = 0; i != words; i++) {
+        printf("%s\n" , word_by_word[i]);
+    }
+    int w = 0 , j = 0 , result = -1;
+    for (int i = 0; i < strlen(text_of_file);) {
+        if (w == words)
             break;
-        }
-        if (text_of_file[i] == string[j]) {
-            j++;
+        int last = strlen(word_by_word[w]) -1;
+        if (word_by_word[w][j] == 254) {
+            int start = i;
+            while (text_of_file[i] != ' ' && text_of_file[i] != '\n' && text_of_file[i] != '\0') {
+                i++;
+            }
+            i--;
+            bool flag = true;
+            j = strlen(word_by_word[w])-1;
+            while (j > 0) {
+                if (word_by_word[w][j] != text_of_file[i]) {
+                    flag = false;
+                    break;
+                } else {
+                    i--;
+                    j--;
+                }
+            }
+            if (flag) {
+                w++;
+                j = 0;
+                if (w == 1) {
+                    for (int k = i; k >= 0; k--) {
+                        if (text_of_file[k] == '\n' || text_of_file[k] == '\0' || text_of_file[k] == ' ') {
+                            result = k+1;
+                            break;
+                        }
+                    }
+                }
+                i += strlen(word_by_word[w-1])+1;
+            } else {
+                if (result != -1) {
+                    i = result + 1;
+                } else {
+                    i = start + 1;
+                }
+                result = -1;
+                w = 0;
+                j = 0;
+            }
+        } else if (word_by_word[w][last] == 254) {
+            bool flag = true;
+            int start = i;
+            while (j != last) {
+                if (text_of_file[i] == word_by_word[w][j]) {
+                    j++;
+                    i++;
+                } else {
+                    flag = false;
+                    break;
+                }
+            }
+            while (text_of_file[i] != ' ' && text_of_file[i] != '\n' && text_of_file[i] != '\0') {
+                i++;
+            }
+            i++;
+            if (flag) {
+                if (w == 0)
+                    result = start;
+                w++;
+                j = 0;
+            } else {
+                if (result != -1) {
+                    i = result + 1;
+                } else {
+                    i = start + 1;
+                }
+                result = -1;
+                w = 0;
+                j = 0;
+            }
         } else {
-            i -= j;
-            j = 0;
+            int start = i;
+            bool flag = true;
+            while (j <= last) {
+                if (word_by_word[w][j] == text_of_file[i]) {
+                    i++;
+                    j++;
+                } else {
+                    flag = false;
+                    break;
+                }
+            }
+            i++;
+            if (flag) {
+                if (w == 0)
+                    result = start;
+                w++;
+                j = 0;
+            } else {
+                if (result != -1)
+                    i = result + 1;
+                else
+                    i = start + 1;
+                result = -1;
+                w = 0;
+                j = 0;
+            }
         }
-    }*/
+    }
+    printf("%d\n"  ,result);
 }
 
 void copy_all_text_of_file(FILE *file , char *text) {
@@ -833,8 +938,12 @@ void copy_all_text_of_file(FILE *file , char *text) {
     char now_char = '\0';
     while (now_char != EOF) {
         now_char = fgetc(file);
-        if (now_char != EOF)
-            text[i] = now_char;
+        if (now_char != EOF) {
+            if (now_char == '\0')
+                text[i] = ' ';
+            else
+                text[i] = now_char;
+        }
         i++;
     }
     text[i] = '\0';
@@ -845,3 +954,4 @@ void copy_all_text_of_file(FILE *file , char *text) {
 // checking pos for all :(
 // .txt is not important :(
 // backslash gheir mortabet
+// enter and eof is ignored in find
