@@ -4,9 +4,9 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <windows.h>
-#define maximum_size_of_input 1000
+#define maximum_size_of_input 1000000
 bool is_cut = false , is_find = true;
-char pathes[maximum_size_of_input];
+char pathes[maximum_size_of_input] , pathes2[maximum_size_of_input] , pathes3[maximum_size_of_input];
 
 void main_function(); // this function is the input receiver of the program
 void createfile(char *); // this function creates a .txt file with specified path
@@ -28,9 +28,13 @@ void append(FILE * , char *); // this function appends a text to the end of file
 void copystr(char *); // command 5
 void cutstr(char *); // command 6
 void pastestr(char *); // command 7
-void grep(char *); //command 8
+void grep(char *); //command 10
 void find_grep(FILE * , char * , int , int , int *); // this function use for printing a line (by another function) that has some text (pattern)
 void print_the_line(char * , int , int * , int); // this function use for printing a line that starts after last_enter and push the index to next enter
+void create_backup_file(); // this function creates a backupfile after creating file
+void create_dot_file(); // this function creates ..txt and update it with last file (before action)
+void update_backup_file(); // this function update backup file after an action and removes ..txt file
+void undo(char *); // command 11
 
 /*
  * first Name: Farzam
@@ -69,8 +73,9 @@ void main_function()
         pastestr(input);
     } else if (strcmp (input , "grep") == 0) {
         grep(input);
-    }
-    else {
+    } else if (strcmp (input , "undo") == 0) {
+        undo(input);
+    } else {
         printf("invalid command\n");
     }
     free(input);
@@ -89,6 +94,7 @@ void createfile(char *command) {
     FILE *file = open_or_create_file(path , "w" , -1);
     if (file != NULL) {
         fclose(file);
+        create_backup_file();
     }
 }
 
@@ -169,6 +175,9 @@ void insertstr(char *command , char *mode , char *paste)
     if (file == NULL) {
         return;
     }
+    fclose(file);
+    create_dot_file();
+    file = fopen(pathes , "r+");
     resume += (7 + skip);
     if (resume == NULL)
     {
@@ -220,6 +229,7 @@ void insertstr(char *command , char *mode , char *paste)
     file4 = file3;
     back_the_text(file4 , copy ,0 , "second_time");
     fclose(file);
+    update_backup_file();
 }
 
 FILE *find_path(char *resume, char *type , int *skip , int id)
@@ -502,8 +512,7 @@ void cat(char *command)
     fclose(file);
 }
 
-void removestr(char *command , char *mode)
-{
+void removestr(char *command , char *mode) {
     char *path = calloc(maximum_size_of_input , sizeof(char));
     command = strtok(NULL , "");
     strcpy(path , command);
@@ -520,6 +529,9 @@ void removestr(char *command , char *mode)
         printf("invalid command\n");
         return;
     }
+    fclose(file);
+    create_dot_file();
+    file = fopen(pathes , "r+");
     resume += 7 + skip;
     if (resume == NULL || resume[0] != ' ') {
         printf("invalid command\n");
@@ -626,6 +638,7 @@ void removestr(char *command , char *mode)
     append(file3 , copy1);
     append(file3 , copy2);
     fclose(file3);
+    update_backup_file();
 }
 
 bool find_size(char *size , int *result){
@@ -695,6 +708,9 @@ void copystr(char *command) {
         printf("invalid command\n");
         return;
     }
+    fclose(file);
+    create_dot_file();
+    file = fopen(pathes , "r+");
     resume += 7 + skip;
     if (resume == NULL || resume[0] != ' ') {
         printf("invalid command\n");
@@ -788,6 +804,7 @@ void copystr(char *command) {
     fclose(file);
     fclose(file2);
     is_cut = false;
+    update_backup_file();
 }
 
 void cutstr(char *command) {
@@ -909,6 +926,143 @@ void print_the_line(char *text , int last_enter , int *ind , int mode) {
     *ind = i;
 }
 
+void create_backup_file() {
+    char *backup_address = (char *)calloc(maximum_size_of_input , sizeof(char));
+    int last , i;
+    for (last = strlen(pathes)-1; last >= 0; last--) {
+        if (pathes[last] == '/')
+            break;
+    }
+    for (i = 0; i <= last; i++) {
+        backup_address[i] = pathes[i];
+    }
+    backup_address[i] = '$';
+    while (i != strlen(pathes)) {
+        backup_address[i+1] = pathes[i];
+        i++;
+    }
+    backup_address[i+1] = '\0';
+    FILE *file = fopen(backup_address , "w");
+    fclose(file);
+    int attr = GetFileAttributes("file.txt");
+    if ((attr & FILE_ATTRIBUTE_HIDDEN) == 0) {
+        SetFileAttributes("file.txt", attr | FILE_ATTRIBUTE_HIDDEN);
+    }
+    file = fopen(backup_address , "r+");
+    fclose(file);
+}
+
+void create_dot_file() {
+    strcpy(pathes2 , pathes);
+    char *dot_file = (char *)calloc(maximum_size_of_input , sizeof(char));
+    int last , i;
+    for (last = strlen(pathes)-1; last >= 0; last--) {
+        if (pathes[last] == '/')
+            break;
+    }
+    for (i = 0; i <= last; i++)
+        dot_file[i] = pathes[i];
+    dot_file[i] = '\0';
+    strcat(dot_file , "..txt");
+    strcpy(pathes3 , dot_file);
+    FILE *file = fopen(dot_file , "w");
+    fclose(file);
+    int attr = GetFileAttributes(dot_file);
+    if ((attr & FILE_ATTRIBUTE_HIDDEN) == 0) {
+        SetFileAttributes(dot_file, attr | FILE_ATTRIBUTE_HIDDEN);
+    }
+    file = fopen(pathes , "r+");
+    char *all_text = (char *)calloc(maximum_size_of_input , sizeof(char));
+    fseek(file , 0 , SEEK_END);
+    save_text_from_first(file , all_text);
+    fclose(file);
+    file = NULL;
+    file = fopen(dot_file , "r+");
+    for (int i = 0; i != strlen(all_text); i++)
+        fputc(all_text[i] , file);
+    fseek(file , 0 , SEEK_SET);
+    fclose(file);
+}
+
+void update_backup_file() {
+    char *dollar_file = (char *)calloc(maximum_size_of_input , sizeof(char));
+    char *dot_file = (char *)calloc(maximum_size_of_input , sizeof(char));
+    strcpy(dot_file , pathes3);
+    int last , i;
+    for (last = strlen(pathes2)-1; last >= 0; last--) {
+        if (pathes2[last] == '/')
+            break;
+    }
+    for (i = 0; i <= last; i++) {
+        dollar_file[i] = pathes2[i];
+    }
+    dollar_file[i] = '$';
+    while (i != strlen(pathes2)) {
+        dollar_file[i+1] = pathes2[i];
+        i++;
+    }
+    dollar_file[i+1] = '\0';
+    char *all_dot = (char *)calloc(maximum_size_of_input , sizeof(char));
+    FILE *file = fopen(dot_file , "r+");
+    fseek(file , 0 , SEEK_END);
+    save_text_from_first(file , all_dot);
+    fclose(file);
+    FILE *file2 = fopen(dollar_file , "w");
+    fclose(file2);
+    int attr = GetFileAttributes(dollar_file);
+    if ((attr & FILE_ATTRIBUTE_HIDDEN) == 0) {
+        SetFileAttributes(dollar_file, attr | FILE_ATTRIBUTE_HIDDEN);
+    }
+    file2 = fopen(dollar_file , "r+");
+    for (i = 0; i != strlen(all_dot); i++)
+        fputc(all_dot[i] ,file2);
+    fclose(file2);
+    remove(dot_file);
+}
+
+void undo(char *command) {
+    command = strtok(NULL , " ");
+    int null , null2;
+    FILE *file = find_path(command , "r+" , &null , null2);
+    fseek(file , 0 , SEEK_END);
+    char *all_text = (char *)calloc(maximum_size_of_input , sizeof(char));
+    all_text[0] = '\0';
+    save_text_from_first(file , all_text);
+    char *all_text_dollar = (char *)calloc(maximum_size_of_input , sizeof(char));
+    char *dollar_file = (char *)calloc(maximum_size_of_input , sizeof(char));
+    all_text_dollar[0] = '\0';
+    int last , i;
+    for (last = strlen(pathes); last >= 0; last--) {
+        if (pathes[last] == '/')
+            break;
+    }
+    for (i = 0; i <= last; i++)
+        dollar_file[i] = pathes[i];
+    dollar_file[i] = '$';
+    while (i != strlen(pathes)) {
+        dollar_file[i+1] = pathes[i];
+        i++;
+    }
+    dollar_file[i+1] = '\0';
+    fclose(file);
+    file = fopen(dollar_file , "r+");
+    save_text_from_first(file , all_text_dollar);
+    fclose(file);
+    file = fopen(pathes , "w");
+    for (int i = 0; i != strlen(all_text_dollar); i++)
+        fputc(all_text_dollar[i] , file);
+    fclose(file);
+    FILE *file2 = fopen(dollar_file , "w");
+    fclose(file2);
+    int attr = GetFileAttributes(dollar_file);
+    if ((attr & FILE_ATTRIBUTE_HIDDEN) == 0) {
+        SetFileAttributes(dollar_file, attr | FILE_ATTRIBUTE_HIDDEN);
+    }
+    file2 = fopen(dollar_file , "r+");
+    for (i = 0; i != strlen(all_text); i++)
+        fputc(all_text[i] ,file2);
+    fclose(file2);
+}
 
 // invalid inputs must check
 // eof error in removestr
@@ -916,3 +1070,9 @@ void print_the_line(char *text , int last_enter , int *ind , int mode) {
 // .txt is not important :(
 // backslash gheir mortabet
 // enter and eof is ignored in find
+// bb test is remaining
+// no such directory or file
+// bad position
+// .txt no
+// undo without an dollar file
+// undo and undo
