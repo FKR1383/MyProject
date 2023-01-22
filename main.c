@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <windows.h>
 #define maximum_size_of_input 1000000
-bool is_cut = false , is_find = true;
+bool is_cut = false , is_find = false;
 char pathes[maximum_size_of_input] , pathes2[maximum_size_of_input] , pathes3[maximum_size_of_input];
 
 void main_function(); // this function is the input receiver of the program
@@ -35,6 +35,7 @@ void create_backup_file(); // this function creates a backupfile after creating 
 void create_dot_file(); // this function creates ..txt and update it with last file (before action)
 void update_backup_file(); // this function update backup file after an action and removes ..txt file
 void undo(char *); // command 11
+void find(char *); // command 8
 
 /*
  * first Name: Farzam
@@ -75,6 +76,8 @@ void main_function()
         grep(input);
     } else if (strcmp (input , "undo") == 0) {
         undo(input);
+    } else if (strcmp (input , "find") == 0) {
+        find(input);
     } else {
         printf("invalid command\n");
     }
@@ -299,7 +302,7 @@ bool find_string(char *resume , char *string , int *skip)
             } else {
                 if (is_find) {
                     if (resume[i] == '*') {
-                        string[j] = 254;
+                        string[j] = (char)127;
                     }
                     else
                         string[j] = resume[i];
@@ -331,7 +334,7 @@ bool find_string(char *resume , char *string , int *skip)
             } else {
                 if (is_find) {
                     if (resume[i+1] == '*') {
-                        string[j] = 254;
+                        string[j] = (char)127;
                     } else
                         string[j] = resume[i+1];
                     j++;
@@ -1062,6 +1065,101 @@ void undo(char *command) {
     for (i = 0; i != strlen(all_text); i++)
         fputc(all_text[i] ,file2);
     fclose(file2);
+}
+
+void find(char *command) {
+    char *newcommand = (char *)calloc(maximum_size_of_input , sizeof(char));
+    command = strtok(NULL , "");
+    strcpy(newcommand , command);
+    char *string = (char *)calloc(maximum_size_of_input , sizeof(char));
+    char *all_text = (char *)calloc(maximum_size_of_input , sizeof(char));
+    int skip;
+    is_find = true;
+    find_string(command , string , &skip);
+    is_find = false;
+    newcommand += (7 + skip);
+    strtok(newcommand , " ");
+    int null;
+    FILE *file = find_path(newcommand , "r+" , &skip , null);
+    save_text(file , all_text);
+    int j = 0 , start = 0;
+    for (int i = 0; i <= strlen(all_text); i++) {
+        if (j == strlen(string)) {
+            if (string[0] == 127) {
+                int l = start;
+                while (l >= 0 && all_text[l] != ' ' && all_text[l] != ' ' && all_text[l] != '\n')
+                    l--;
+                printf("%d\n" , l+1);
+                int end = start;
+                while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
+                    end++;
+                i = end+1;
+                j = 0;
+            } else if (string[strlen(string)-1] == 127) {
+                printf("%d\n" , start);
+                int end = start;
+                while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
+                    end++;
+                i = end+1;
+                j = 0;
+            } else {
+                printf("%d\n", start);
+                j = 0;
+                i = start + 1;
+            }
+        }
+        if (i >= strlen(all_text)) {
+            if (string[j] == 127 && j == strlen(string) - 1) {
+                printf("%d\n" , start);
+            }
+            break;
+        }
+        if (j == 0)
+            start = i;
+        if (string[j] == 127) {
+            if (j == 0 || string[j-1] == ' ') {
+                j++;
+                while (string[j] != ' ' && string[j] != '\0')
+                    j++;
+                j--;
+                while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
+                    i++;
+                }
+                i--;
+                while (i != 0 && all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
+                    if (all_text[i] == string[j]) {
+                        j--;
+                    }
+                    i--;
+                }
+                if (string[j] == 127) {
+                    i++;
+                    while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0')
+                        i++;
+                    i--;
+                    while (string[j] != ' ' && string[j] != '\0')
+                        j++;
+                }
+                if (string[j] != ' ' && string[j] != '\0') {
+                    i = start;
+                    j = 0;
+                }
+            } else {
+                j++;
+                while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
+                    i++;
+                }
+                i--;
+            }
+        } else {
+            if (all_text[i] == string[j])
+                j++;
+            else {
+                i = start;
+                j = 0;
+            }
+        }
+    }
 }
 
 // invalid inputs must check
