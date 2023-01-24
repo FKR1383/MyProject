@@ -36,6 +36,8 @@ void create_dot_file(); // this function creates ..txt and update it with last f
 void update_backup_file(); // this function update backup file after an action and removes ..txt file
 void undo(char *); // command 11
 void find(char *); // command 8
+int word_finding(char * ,int); // this command found that the n-th character of file is for result-th word of the text
+void replace(char *); // command 9
 
 /*
  * first Name: Farzam
@@ -1068,9 +1070,14 @@ void undo(char *command) {
 }
 
 void find(char *command) {
+    bool options[4] = {false};
+    int at;
+    // 0 is count -- 1 is at -- 2 is byword -- 3 is all
     char *newcommand = (char *)calloc(maximum_size_of_input , sizeof(char));
+    char *newcommand2 = (char *) calloc(maximum_size_of_input , sizeof(char));
     command = strtok(NULL , "");
     strcpy(newcommand , command);
+    strcpy(newcommand2 , command);
     char *string = (char *)calloc(maximum_size_of_input , sizeof(char));
     char *all_text = (char *)calloc(maximum_size_of_input , sizeof(char));
     int skip;
@@ -1078,89 +1085,199 @@ void find(char *command) {
     find_string(command , string , &skip);
     is_find = false;
     newcommand += (7 + skip);
+    newcommand2 += (7 + skip);
     strtok(newcommand , " ");
     int null;
     FILE *file = find_path(newcommand , "r+" , &skip , null);
+    newcommand2 += (7 + skip);
+    if (newcommand2[0] != '\0') {
+        newcommand2++;
+        strtok(newcommand2 , " ");
+        while (newcommand2 != NULL) {
+            if (strcmp(newcommand2 , "-count") == 0)
+                options[0] = true;
+            if (strcmp(newcommand2 , "-at") == 0) {
+                options[1] = true;
+                newcommand2 = strtok(NULL , " ");
+                at = atoi(newcommand2);
+            }
+            if (strcmp(newcommand2 , "-byword") == 0)
+                options[2] = true;
+            if (strcmp(newcommand2 , "-all") == 0)
+                options[3] = true;
+            newcommand2 = strtok(NULL , " ");
+        }
+    }
+    int *first_pos = (int *) calloc(maximum_size_of_input , sizeof(int));
+    int *second_pos = (int *) calloc(maximum_size_of_input , sizeof(int));
+    int counter = 0;
     save_text(file , all_text);
-    int j = 0 , start = 0;
-    for (int i = 0; i <= strlen(all_text); i++) {
-        if (j == strlen(string)) {
-            if (string[0] == 127) {
-                int l = start;
-                while (l >= 0 && all_text[l] != ' ' && all_text[l] != ' ' && all_text[l] != '\n')
-                    l--;
-                printf("%d\n" , l+1);
-                int end = start;
-                while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
-                    end++;
-                i = end+1;
-                j = 0;
-            } else if (string[strlen(string)-1] == 127) {
-                printf("%d\n" , start);
-                int end = start;
-                while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
-                    end++;
-                i = end+1;
-                j = 0;
-            } else {
-                printf("%d\n", start);
-                j = 0;
-                i = start + 1;
-            }
-        }
-        if (i >= strlen(all_text)) {
-            if (string[j] == 127 && j == strlen(string) - 1) {
-                printf("%d\n" , start);
-            }
-            break;
-        }
-        if (j == 0)
-            start = i;
-        if (string[j] == 127) {
-            if (j == 0 || string[j-1] == ' ') {
-                j++;
-                while (string[j] != ' ' && string[j] != '\0')
-                    j++;
-                j--;
-                while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
-                    i++;
+        int j = 0, start = 0;
+        for (int i = 0; i <= strlen(all_text); i++) {
+            if (j == strlen(string)) {
+                if (string[0] == 127) {
+                    int l = start;
+                    while (l >= 0 && all_text[l] != ' ' && all_text[l] != ' ' && all_text[l] != '\n')
+                        l--;
+                    *(first_pos + counter) = l+1;
+                    *(second_pos + counter) = i;
+                    int end = start;
+                    while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
+                        end++;
+                    i = end + 1;
+                    j = 0;
+                } else if (string[strlen(string) - 1] == 127) {
+                    *(first_pos + counter) = start;
+                    int end = start;
+                    while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
+                        end++;
+                    i = end + 1;
+                    *(second_pos + counter) = end;
+                    j = 0;
+                } else {
+                    *(first_pos + counter) = start;
+                    *(second_pos + counter) = i;
+                    j = 0;
+                    i = start + 1;
                 }
-                i--;
-                while (i != 0 && all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
-                    if (all_text[i] == string[j]) {
-                        j--;
+                counter++;
+            }
+            if (i >= strlen(all_text)) {
+                if (string[j] == 127 && j == strlen(string) - 1) {
+                    *(first_pos + counter) = start;
+                    *(second_pos + counter) = i;
+                    counter++;
+                }
+                break;
+            }
+            if (j == 0)
+                start = i;
+            if (string[j] == 127) {
+                if (j == 0 || string[j - 1] == ' ') {
+                    j++;
+                    while (string[j] != ' ' && string[j] != '\0')
+                        j++;
+                    j--;
+                    while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
+                        i++;
+                    }
+                    i--;
+                    bool flag = false;
+                    int started_j = j;
+                    while (i != 0 && all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
+                        if (all_text[i] == string[j]) {
+                            flag = true;
+                            j--;
+                        } else if (string[j] == 127) {
+                            break;
+                        } else if (flag) {
+                            flag = false;
+                            j = started_j;
+                        }
+                        i--;
+                    }
+                    while (i != 0 && all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0')
+                        i--;
+                    if (string[j] == 127) {
+                        i++;
+                        while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0')
+                            i++;
+                        i--;
+                        while (string[j] != ' ' && string[j] != '\0')
+                            j++;
+                    }
+                    if (string[j] != ' ' && string[j] != '\0') {
+                        i = start;
+                        j = 0;
+                    }
+                } else {
+                    j++;
+                    while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
+                        i++;
                     }
                     i--;
                 }
-                if (string[j] == 127) {
-                    i++;
-                    while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0')
-                        i++;
-                    i--;
-                    while (string[j] != ' ' && string[j] != '\0')
-                        j++;
-                }
-                if (string[j] != ' ' && string[j] != '\0') {
+            } else {
+                if (all_text[i] == string[j])
+                    j++;
+                else {
                     i = start;
                     j = 0;
                 }
-            } else {
-                j++;
-                while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
-                    i++;
-                }
-                i--;
-            }
-        } else {
-            if (all_text[i] == string[j])
-                j++;
-            else {
-                i = start;
-                j = 0;
             }
         }
-    }
+            if (options[0]) {
+                if (options[1] || options[2] || options[3])
+                    printf("These options cannot come together!\n");
+                else
+                    printf("%d\n", counter);
+            } else {
+                if (options[1]) {
+                    if (options[3])
+                        printf("These options cannot come together!\n");
+                    else {
+                        if (options[2]) {
+                            if (at > counter)
+                                printf("-1\n");
+                            else
+                                printf("%d\n" , word_finding(all_text , first_pos[at-1]));
+                        } else {
+                            if (at > counter)
+                                printf("-1\n");
+                            else
+                                printf("%d\n", first_pos[at - 1]);
+                        }
+                    }
+                } else {
+                    if (options[2]) {
+                        if (options[3]) {
+                            if (counter == 0)
+                                printf("-1\n");
+                            else
+                                for (int i = 0; i != counter; i++)
+                                    printf("%d " , word_finding(all_text , first_pos[i]));
+                                printf("\n");
+                        } else {
+                            if (counter == 0)
+                                printf("-1\n");
+                            else
+                                printf("%d\n" , word_finding(all_text , first_pos[0]));
+                        }
+                    } else {
+                        if (options[3]) {
+                            if (counter == 0)
+                                printf("-1\n");
+                            else
+                                for (int i = 0; i != counter; i++)
+                                    printf("%d " , first_pos[i]);
+                                printf("\n");
+                        } else {
+                            if (1 > counter)
+                                printf("-1\n");
+                            else
+                                printf("%d\n", first_pos[0]);
+                        }
+                    }
+                }
+            }
 }
+
+int word_finding(char *text , int noc) {
+    // noc stands for number of character
+    int j = 0;
+    for (int i = 0; i != strlen(text); i++) {
+        if (i == noc)
+            break;
+        if (text[i] == ' ' || text[i] == '\n')
+            j++;
+    }
+    return j+1;
+}
+
+void replace(char *command) {
+
+}
+
 
 // invalid inputs must check
 // eof error in removestr
@@ -1174,3 +1291,6 @@ void find(char *command) {
 // .txt no
 // undo without an dollar file
 // undo and undo
+// Za avvale matn ba searche *Za
+// find one word
+// * before one word
