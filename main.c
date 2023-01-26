@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <windows.h>
 #define maximum_size_of_input 1000000
-bool is_cut = false , is_find = false;
+bool is_cut = false , is_find = false , is_replace = false;
 char pathes[maximum_size_of_input] , pathes2[maximum_size_of_input] , pathes3[maximum_size_of_input];
 
 void main_function(); // this function is the input receiver of the program
@@ -35,9 +35,10 @@ void create_backup_file(); // this function creates a backupfile after creating 
 void create_dot_file(); // this function creates ..txt and update it with last file (before action)
 void update_backup_file(); // this function update backup file after an action and removes ..txt file
 void undo(char *); // command 11
-void find(char *); // command 8
+void find(char * , char *); // command 8 -- second argument is for replace
 int word_finding(char * ,int); // this command found that the n-th character of file is for result-th word of the text
 void replace(char *); // command 9
+int replacing_the_word(char * ,int , int , char *); // this function replaces the word on the supposed position with removing the current phrase
 
 /*
  * first Name: Farzam
@@ -79,8 +80,10 @@ void main_function()
     } else if (strcmp (input , "undo") == 0) {
         undo(input);
     } else if (strcmp (input , "find") == 0) {
-        find(input);
-    } else {
+        find(input , NULL);
+    } else if (strcmp (input , "replace") == 0) {
+        replace(input);
+    }else {
         printf("invalid command\n");
     }
     free(input);
@@ -1069,7 +1072,7 @@ void undo(char *command) {
     fclose(file2);
 }
 
-void find(char *command) {
+void find(char *command , char *replace) {
     bool options[4] = {false};
     int at;
     // 0 is count -- 1 is at -- 2 is byword -- 3 is all
@@ -1110,6 +1113,7 @@ void find(char *command) {
     }
     int *first_pos = (int *) calloc(maximum_size_of_input , sizeof(int));
     int *second_pos = (int *) calloc(maximum_size_of_input , sizeof(int));
+    bool successful_replace = false;
     int counter = 0;
     save_text(file , all_text);
         int j = 0, start = 0;
@@ -1140,12 +1144,34 @@ void find(char *command) {
                     j = 0;
                     i = start + 1;
                 }
+                if (is_replace) {
+                    if (options[1]) {
+                        if (at-1 == counter) {
+                            successful_replace = true;
+                            i = replacing_the_word(all_text , *(first_pos + counter) , *(second_pos + counter)-1 , replace);
+                        }
+                    } else {
+                        successful_replace = true;
+                        i = replacing_the_word(all_text , *(first_pos + counter) , *(second_pos + counter)-1 , replace);
+                    }
+                }
                 counter++;
             }
             if (i >= strlen(all_text)) {
                 if (string[j] == 127 && j == strlen(string) - 1) {
                     *(first_pos + counter) = start;
                     *(second_pos + counter) = i;
+                    if (is_replace) {
+                        if (options[1]) {
+                            if (at-1 == counter) {
+                                successful_replace = true;
+                                i = replacing_the_word(all_text , *(first_pos + counter) , *(second_pos + counter)-1 , replace);
+                            }
+                        } else {
+                            successful_replace = true;
+                            i = replacing_the_word(all_text , *(first_pos + counter) , *(second_pos + counter)-1 , replace);
+                        }
+                    }
                     counter++;
                 }
                 break;
@@ -1206,6 +1232,7 @@ void find(char *command) {
                 }
             }
         }
+        if (!is_replace) {
             if (options[0]) {
                 if (options[1] || options[2] || options[3])
                     printf("These options cannot come together!\n");
@@ -1220,7 +1247,7 @@ void find(char *command) {
                             if (at > counter)
                                 printf("-1\n");
                             else
-                                printf("%d\n" , word_finding(all_text , first_pos[at-1]));
+                                printf("%d\n", word_finding(all_text, first_pos[at - 1]));
                         } else {
                             if (at > counter)
                                 printf("-1\n");
@@ -1235,13 +1262,13 @@ void find(char *command) {
                                 printf("-1\n");
                             else
                                 for (int i = 0; i != counter; i++)
-                                    printf("%d " , word_finding(all_text , first_pos[i]));
-                                printf("\n");
+                                    printf("%d ", word_finding(all_text, first_pos[i]));
+                            printf("\n");
                         } else {
                             if (counter == 0)
                                 printf("-1\n");
                             else
-                                printf("%d\n" , word_finding(all_text , first_pos[0]));
+                                printf("%d\n", word_finding(all_text, first_pos[0]));
                         }
                     } else {
                         if (options[3]) {
@@ -1249,8 +1276,8 @@ void find(char *command) {
                                 printf("-1\n");
                             else
                                 for (int i = 0; i != counter; i++)
-                                    printf("%d " , first_pos[i]);
-                                printf("\n");
+                                    printf("%d ", first_pos[i]);
+                            printf("\n");
                         } else {
                             if (1 > counter)
                                 printf("-1\n");
@@ -1260,6 +1287,20 @@ void find(char *command) {
                     }
                 }
             }
+        } else {
+            if (successful_replace)
+                printf("replace successfully done!\n");
+            else
+                printf("replace failed\n");
+        }
+        fclose(file);
+        if (successful_replace) {
+            file = fopen(pathes, "w");
+            for (int i = 0; i != strlen(all_text); i++) {
+                fputc(all_text[i],file);
+            }
+            fclose(file);
+        }
 }
 
 int word_finding(char *text , int noc) {
@@ -1275,7 +1316,85 @@ int word_finding(char *text , int noc) {
 }
 
 void replace(char *command) {
+    char *newcommand = (char *)calloc(maximum_size_of_input , sizeof(char));
+    char *str1 = (char *)calloc(maximum_size_of_input , sizeof(char));
+    char *str2 = (char *)calloc(maximum_size_of_input , sizeof(char));
+    int skip;
+    command = strtok(NULL , "");
+    strcpy(newcommand , command);
+    find_string(newcommand , str1, &skip);
+    command += (7 + skip);
+    strcpy(newcommand , command);
+    find_string(newcommand , str2 , &skip);
+    command += (7 + skip);
+    strcpy(newcommand , command);
+    strtok(command , " ");
+    FILE *file = find_path(command,  "r+" , &skip , 0);
+    if (file == NULL)
+        return;
+    fclose(file);
+    bool options[2] = {false , false};
+    int at;
+    newcommand += (8 + skip);
+    char *newcommand2 = (char *)calloc(maximum_size_of_input , sizeof(char));
+    strcpy(newcommand2 , newcommand);
+    strtok(newcommand2 , " ");
+    while (newcommand2 != NULL) {
+        if (strcmp(newcommand2 , "-at") == 0) {
+            options[0] = true;
+            newcommand2 = strtok(NULL , " ");
+            at = atoi(newcommand2);
+        }
+        if (strcmp(newcommand2 , "-all") == 0)
+            options[1] = true;
+        if (newcommand2[0] == '\0' || newcommand2 == NULL)
+            break;
+        newcommand2 = strtok(NULL , " ");
+    }
+    if (options[0] && options[1]) {
+        printf("invalid mix of options!\n");
+        return;
+    }
+    strcpy(newcommand , "\0");
+    strcat(newcommand , "find --str \"");
+    strcat(newcommand , str1);
+    strcat(newcommand , "\" --file \"/");
+    strcat(newcommand , pathes);
+    strcat(newcommand , "\"");
+    if (options[0]) {
+        strcat(newcommand , " -at ");
+        char *num = (char *)calloc(maximum_size_of_input , sizeof(char));
+        sprintf(num , "%d" , at);
+        strcat(newcommand , num);
+    } else {
+        strcat(newcommand , " -all");
+    }
+    char *find_command = (char *)calloc(maximum_size_of_input , sizeof(char));
+    strcpy(find_command , newcommand);
+    strtok(find_command , " ");
+    is_replace = true;
+    find(find_command , str2);
+    is_replace = false;
+}
 
+int replacing_the_word(char *text , int first , int second , char *string) {
+    char *saved = (char *)calloc(maximum_size_of_input , sizeof(char));
+    for (int i = second + 1; i != strlen(text); i++) {
+        *(saved + i - second - 1) = *(text + i);
+    }
+    *(saved + strlen(text) - 1 - second) = '\0';
+    int j = first;
+    for (int i = 0; i != strlen(string); i++) {
+        *(text + j) = *(string + i);
+        j++;
+    }
+    int result = j;
+    for (int i = 0; i != strlen(saved); i++) {
+        *(text + j) = *(saved + i);
+        j++;
+    }
+    *(text + j) = '\0';
+    return result;
 }
 
 
@@ -1294,3 +1413,5 @@ void replace(char *command) {
 // Za avvale matn ba searche *Za
 // find one word
 // * before one word
+// --str1 and --str2 in replace
+// find one message no two messages
