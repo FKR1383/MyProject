@@ -89,6 +89,8 @@ void main_function()
         replace(input);
     } else if (strcmp (input , "auto-indent") == 0) {
         auto_indent(input);
+    } else if (strcmp (input , "compare") == 0) {
+        text_comparator(input);
     } else {
         printf("invalid command\n");
     }
@@ -1587,6 +1589,83 @@ void shifting(char *text , int ind , int size) {
 void left_shifting(char *text , int ind , int size) {
     for (int i = ind; i <= strlen(text); i++) {
         text[i-size] = text[i];
+    }
+}
+
+void text_comparator(char *command) {
+    command = strtok(NULL, "");
+    char *newcommand = (char *) calloc(maximum_size_of_input, sizeof(char));
+    char *all_text1 = (char *) calloc(maximum_size_of_input, sizeof(char));
+    char *all_text2 = (char *) calloc(maximum_size_of_input, sizeof(char));
+    strcpy(newcommand, command);
+    strtok(command, " ");
+    int skip;
+    FILE *file = find_path(command, "r+", &skip, 0);
+    fseek(file, 0, SEEK_END);
+    save_text_from_first(file, all_text1);
+    fclose(file);
+    newcommand += 8 + skip;
+    strcpy(command, newcommand);
+    strcpy(newcommand, "--file ");
+    strcat(newcommand, command);
+    strtok(newcommand, " ");
+    file = find_path(newcommand, "r+", &skip, 0);
+    fseek(file, 0, SEEK_END);
+    save_text_from_first(file, all_text2);
+    fclose(file);
+    char *line1 = (char *) calloc(maximum_size_of_input, sizeof(char));
+    char *line2 = (char *) calloc(maximum_size_of_input, sizeof(char));
+    int j = 0, i = 0, x = 0, y = 0, counter = 1;
+    while (1) {
+        if (strlen(all_text1) == 0 || strlen(all_text2) == 0)
+            break;
+        while (all_text1[i] != '\n' && all_text1[i] != '\0') {
+            line1[x] = all_text1[i];
+            i++;
+            x++;
+        }
+        line1[x] = '\0';
+        while (all_text2[j] != '\n' && all_text2[j] != '\0') {
+            line2[y] = all_text2[j];
+            j++;
+            y++;
+        }
+        line2[y] = '\0';
+        if (strcmp(line1, line2) != 0) {
+            printf("============ #%d ============\n", counter);
+            printf("%s\n%s\n", line1, line2);
+        }
+        counter++;
+        if (all_text1[i] == '\0')
+            break;
+        if (all_text2[j] == '\0')
+            break;
+        i++;
+        j++;
+        x = y = 0;
+    }
+    if (all_text1[i] != '\0' ^ all_text2[j] != '\0') {
+        if (all_text1[i] == '\0') {
+            j++;
+            int lines = 0;
+            for (int k = j; k != strlen(all_text2); k++)
+                if (all_text2[k] == '\n')
+                    lines++;
+            printf(">>>>>>>>>>>> #%d - #%d >>>>>>>>>>>>\n", counter, counter + lines);
+            for (int k = j; k != strlen(all_text2); k++)
+                printf("%c", all_text2[k]);
+            printf("\n");
+    } else {
+        i++;
+        int lines = 0;
+        for (int k = i; k != strlen(all_text1); k++)
+            if (all_text1[k] == '\n')
+                lines++;
+        printf("<<<<<<<<<<<< #%d - #%d <<<<<<<<<<<<\n", counter, counter + lines);
+        for (int k = i; k != strlen(all_text1); k++)
+            printf("%c", all_text1[k]);
+        printf("\n");
+    }
     }
 }
 
