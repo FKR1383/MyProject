@@ -39,6 +39,10 @@ void find(char * , char *); // command 8 -- second argument is for replace
 int word_finding(char * ,int); // this command found that the n-th character of file is for result-th word of the text
 void replace(char *); // command 9
 int replacing_the_word(char * ,int , int , char *); // this function replaces the word on the supposed position with removing the current phrase
+void auto_indent(char *); // command 12
+void shifting(char * , int , int); // this function shifting the text from one position for some cells
+void left_shifting(char * , int , int); // this function shifting the text to left from one position for some cells
+void text_comparator(char *); // command 13
 
 /*
  * first Name: Farzam
@@ -83,7 +87,9 @@ void main_function()
         find(input , NULL);
     } else if (strcmp (input , "replace") == 0) {
         replace(input);
-    }else {
+    } else if (strcmp (input , "auto-indent") == 0) {
+        auto_indent(input);
+    } else {
         printf("invalid command\n");
     }
     free(input);
@@ -1397,6 +1403,193 @@ int replacing_the_word(char *text , int first , int second , char *string) {
     return result;
 }
 
+void auto_indent(char *command) {
+    command = strtok(NULL , " ");
+    int null , null2;
+    FILE *file = find_path(command , "r+" , &null , null2);
+    fseek(file , 0 , SEEK_END);
+    char *all_text = (char *)calloc(maximum_size_of_input , sizeof(char));
+    save_text_from_first(file , all_text);
+    fclose(file);
+    create_dot_file();
+    int outer_open_acolad , outer_close_acolad , tabs = 0 , c , o;
+    bool flag = false;
+    for (int i = 0; i != strlen(all_text); i++) {
+        if (all_text[i] == '{') {
+            outer_open_acolad = i;
+            if (c < outer_open_acolad) {
+                tabs = 0;
+                flag = false;
+            } else if (outer_close_acolad < outer_open_acolad)
+                tabs--;
+            outer_close_acolad = -1;
+            int counter = 0;
+            for (int j = i+1; j != strlen(all_text); j++) {
+                if (all_text[j] == '{')
+                    counter++;
+                if (all_text[j] == '}') {
+                    if (counter == 0) {
+                        outer_close_acolad = j;
+                        break;
+                    } else {
+                        counter--;
+                    }
+                }
+            }
+            if (outer_close_acolad == -1) {
+                printf("invalid text for auto indent!\n");
+                return;
+            }
+            int starting_of_line = 0;
+            for (int j = i; j != 0; j--) {
+                if (all_text[j] == '\n') {
+                    starting_of_line = j + 1;
+                    break;
+                }
+            }
+            int j , now_tabs = 0;
+            for (j = starting_of_line; all_text[j] == '\t' && now_tabs != tabs; j++) {
+                now_tabs++;
+            }
+            if (now_tabs < tabs) {
+                shifting(all_text , j , tabs-now_tabs);
+                c += tabs-now_tabs;
+                outer_open_acolad += tabs-now_tabs;
+                outer_close_acolad += tabs-now_tabs;
+                i = outer_open_acolad;
+                int l = j;
+                for (int k = 0; k != tabs-now_tabs; k++) {
+                    all_text[l] = '\t';
+                    l++;
+                }
+                j = l;
+            }
+            int k;
+            for (k = j; k != outer_open_acolad && (all_text[k] == ' ' || all_text[k] == '\t'); k++);
+            if (k-j != 0) {
+                left_shifting(all_text, k, k - j);
+                c -= (k-j);
+                outer_open_acolad -= (k-j);
+                outer_close_acolad -= (k-j);
+            }
+            if (j != outer_open_acolad) {
+                j = outer_open_acolad-1;
+                while (all_text[j] == ' ' || all_text[j] == '\t')
+                    j--;
+                if (outer_open_acolad - j == 1) {
+                    shifting(all_text , outer_open_acolad,  1);
+                    c++;
+                    all_text[outer_open_acolad] = ' ';
+                    outer_open_acolad++;
+                    outer_close_acolad++;
+                    j = outer_open_acolad;
+                } else {
+                    j++;
+                    all_text[j] = ' ';
+                    j++;
+                    if (outer_open_acolad - j != 0) {
+                        left_shifting(all_text, outer_open_acolad, outer_open_acolad - j);
+                        c -= outer_open_acolad - j;
+                        outer_close_acolad -= (outer_open_acolad - j);
+                        outer_open_acolad -= (outer_open_acolad - j);
+                    }
+
+                }
+            }
+            j++;
+            if (all_text[j] != '\n') {
+                while(all_text[j] != '\n' && all_text[j] != '\0' && (all_text[j] == ' ' || all_text[j] == '\t'))
+                    j++;
+                if (j - outer_open_acolad - 1 != 0) {
+                    left_shifting(all_text , j , j - outer_open_acolad - 1);
+                    c -= j - outer_open_acolad - 1;
+                    outer_close_acolad -= (j - outer_open_acolad - 1);
+                    j = outer_open_acolad + 1;
+                }
+                if (all_text[j] != '\n') {
+                    shifting(all_text , j , 1);
+                    c++;
+                    all_text[j] = '\n';
+                    outer_close_acolad += 1;
+                    outer_open_acolad += 1;
+                }
+            }
+            j++;
+            shifting(all_text , j , tabs+1);
+            c += (tabs+1);
+            outer_close_acolad += tabs+1;
+            for (int k = 0; k != tabs+1; k++) {
+                all_text[j] = '\t';
+                j++;
+            }
+            if (all_text[j] != '\t' && j != outer_close_acolad) {
+                j = outer_close_acolad-1;
+                while (all_text[j] == ' ' || all_text[j] == '\t')
+                    j--;
+                j++;
+                left_shifting(all_text , outer_close_acolad , outer_close_acolad - j);
+                c -= outer_close_acolad - j;
+                outer_close_acolad -= (outer_close_acolad - j);
+            }
+            j = outer_close_acolad;
+            shifting(all_text , j , 1);
+            c++;
+            outer_close_acolad++;
+            all_text[j] = '\n';
+            j++;
+            shifting(all_text , j , tabs);
+            c += tabs;
+            for (int k = 0; k != tabs; k++) {
+                all_text[j+k] = '\t';
+            }
+            outer_close_acolad += tabs;
+            j = outer_close_acolad+1;
+            if (all_text[j] != '\n') {
+                while (all_text[j] != '\n' && all_text[j] != '\0' && (all_text[j] == ' ' || all_text[j] == '\t'))
+                    j++;
+                left_shifting(all_text , j , j-outer_close_acolad-1);
+                c -= j-outer_close_acolad-1;
+            }
+            j = outer_close_acolad + 1;
+            if (all_text[j] != '\n' && all_text[j] != '\0') {
+                shifting(all_text , j , 1);
+                c++;
+                all_text[j] = '\n';
+                j++;
+                shifting(all_text , j , tabs);
+                c += tabs;
+                for (int k = 0; k != tabs; k++)
+                    all_text[j+k] = '\t';
+            }
+            tabs++;
+            i = outer_open_acolad;
+            if (!flag) {
+                o = outer_open_acolad;
+                c = outer_close_acolad;
+                flag = true;
+            }
+        }
+    }
+    file = fopen(pathes , "w");
+    for (int i = 0; i != strlen(all_text); i++) {
+        fputc(all_text[i] , file);
+    }
+    fclose(file);
+    update_backup_file();
+}
+
+void shifting(char *text , int ind , int size) {
+    for (int i = strlen(text); i >= ind; i--) {
+        text[i+size] = text[i];
+    }
+}
+
+void left_shifting(char *text , int ind , int size) {
+    for (int i = ind; i <= strlen(text); i++) {
+        text[i-size] = text[i];
+    }
+}
+
 
 // invalid inputs must check
 // eof error in removestr
@@ -1415,3 +1608,4 @@ int replacing_the_word(char *text , int first , int second , char *string) {
 // * before one word
 // --str1 and --str2 in replace
 // find one message no two messages
+// undo of auto indent and replace
