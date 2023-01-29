@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <windows.h>
+#include <dirent.h>
 #define maximum_size_of_input 1000000
 bool is_cut = false , is_find = false , is_replace = false;
 char pathes[maximum_size_of_input] , pathes2[maximum_size_of_input] , pathes3[maximum_size_of_input];
@@ -43,6 +44,9 @@ void auto_indent(char *); // command 12
 void shifting(char * , int , int); // this function shifting the text from one position for some cells
 void left_shifting(char * , int , int); // this function shifting the text to left from one position for some cells
 void text_comparator(char *); // command 13
+void tree (char *); // command 14
+bool directory(char *); // this function checks a path that it is directory or file
+void show_tree(char * , int , int , bool * , int); // this function shows directories and files to some depth
 
 /*
  * first Name: Farzam
@@ -91,6 +95,8 @@ void main_function()
         auto_indent(input);
     } else if (strcmp (input , "compare") == 0) {
         text_comparator(input);
+    } else if (strcmp (input , "tree") == 0) {
+        tree(input);
     } else {
         printf("invalid command\n");
     }
@@ -1669,6 +1675,73 @@ void text_comparator(char *command) {
     }
 }
 
+void tree(char *command){
+    command = strtok(NULL , " ");
+    int depth = atoi(command);
+    if (depth < -1) {
+        printf("invalid depth!\n");
+        return;
+    }
+    char *path = (char *)calloc(maximum_size_of_input , sizeof(char));
+    strcpy(path , "root");
+    bool *last_l = (bool *)calloc(maximum_size_of_input , sizeof(bool));
+    show_tree(path , 0 , 0 , last_l , depth);
+}
+
+void show_tree(char *path , int root ,int level , bool last_l[] , int depth) {
+    if (depth < level && depth != -1)
+        return;
+    int counter = 0 , counter2 = 0;
+    char *new_path = (char *)calloc(2000 , sizeof(char));
+    DIR *dir = opendir(path);
+    struct dirent *dp;
+    while ((dp = readdir(dir)) != NULL) {
+        strcpy(new_path, path);
+        strcat(new_path, "/");
+        strcat(new_path, dp->d_name);
+        int attr = GetFileAttributes(new_path);
+        if (strcmp(dp->d_name, ".") != 0 && strcmp(dp->d_name, "..") != 0 && ((attr & FILE_ATTRIBUTE_HIDDEN) == 0))
+            counter++;
+    }
+    closedir(dir);
+    dir = opendir(path);
+    if (!dir)
+        return;
+    while ((dp = readdir(dir)) != NULL) {
+        strcpy(new_path, path);
+        strcat(new_path, "/");
+        strcat(new_path, dp->d_name);
+        int attr = GetFileAttributes(new_path);
+        if (strcmp(dp->d_name , ".") != 0 && strcmp(dp->d_name , "..") != 0  && ((attr & FILE_ATTRIBUTE_HIDDEN) == 0)) {
+            for (int i = 0; i < root; i++) {
+                if (i % 4 == 0 && i >= 4 &&!last_l[(i/4)-1]) {
+                    printf("%c", 179);
+                } else {
+                    printf(" ");
+                }
+            }
+            if (level != 0) {
+                if (counter2 == counter-1) {
+                    last_l[level] = true;
+                    printf("%c%c%c%c", 192, 196 , 196 , 196 ,dp->d_name);
+                } else {
+                    printf("%c%c%c%c", 195, 196 , 196 , 196 ,dp->d_name);
+                }
+            } else {
+                if (counter2 == counter-1)
+                    last_l[level] = true;
+            }
+            printf("%s\n" , dp->d_name);
+            counter2++;
+            show_tree(new_path , root + 4, level+1 , last_l , depth);
+        }
+    }
+    closedir(dir);
+}
+
+
+
+
 
 // invalid inputs must check
 // eof error in removestr
@@ -1688,3 +1761,4 @@ void text_comparator(char *command) {
 // --str1 and --str2 in replace
 // find one message no two messages
 // undo of auto indent and replace
+// tree bug (in file 1)
