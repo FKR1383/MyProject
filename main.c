@@ -6,8 +6,9 @@
 #include <windows.h>
 #include <dirent.h>
 #define maximum_size_of_input 1000000
-bool is_cut = false , is_find = false , is_replace = false;
+bool is_cut = false , is_find = false , is_replace = false , is_arman = false , is_arman2 = false;
 char pathes[maximum_size_of_input] , pathes2[maximum_size_of_input] , pathes3[maximum_size_of_input];
+unsigned char arman_string[maximum_size_of_input];
 
 void main_function(); // this function is the input receiver of the program
 void createfile(char *); // this function creates a .txt file with specified path
@@ -45,8 +46,8 @@ void shifting(char * , int , int); // this function shifting the text from one p
 void left_shifting(char * , int , int); // this function shifting the text to left from one position for some cells
 void text_comparator(char *); // command 13
 void tree (char *); // command 14
-bool directory(char *); // this function checks a path that it is directory or file
 void show_tree(char * , int , int , bool * , int); // this function shows directories and files to some depth
+void arman(char *); // command 15
 
 /*
  * first Name: Farzam
@@ -68,7 +69,7 @@ void main_function()
     char *input = (char *)calloc(maximum_size_of_input , sizeof(char));
     gets(input);
     strtok(input , " ");
-    // checker is the first word of command
+    // checking is the first word of command :
     if (strcmp(input , "createfile") == 0){
         createfile(input);
     } else if (strcmp(input , "insertstr") == 0) {
@@ -105,10 +106,6 @@ void main_function()
 
 void createfile(char *command) {
     command = strtok(NULL, " ");
-    if (command == NULL || strcmp(command, "--file") != 0) {
-        printf("invalid command\n");
-        return;
-    }
     char *path = (char *) calloc(maximum_size_of_input, sizeof(char));
     path[0] = '\0';
     command = strtok(NULL , "");
@@ -122,31 +119,51 @@ void createfile(char *command) {
 
 FILE *open_or_create_file(char *path , char *type , int id)
 {
-    if (path[0] == '\0')
-    {
-        printf("invalid command\n");
-        return NULL;
-    }
     if (path[0] == '/') {
-        if (strlen(path) < 11) {
+        if (strlen(path) < 7) {
             if (id == -1)
                 printf("invalid address\n");
             else
                 printf("Address of file %d is invalid\n" , id+1);
             return NULL;
         }
-        if (path[1] == 'r' && path[2] == 'o' && path[3] == 'o' && path[4] == 't' && path[5] == '/' && path[strlen(path)-1] == 't' && path[strlen(path)-2] == 'x' && path[strlen(path)-3] == 't' && path[strlen(path)-4] == '.' && path[strlen(path)-5] != '/') {
+        if (path[1] == 'r' && path[2] == 'o' && path[3] == 'o' && path[4] == 't' && path[5] == '/') {
             char *virual_path = (char *)calloc(strlen(path) , sizeof(char));
             virual_path[0] = '\0';
             path++;
+            bool flag = false;
             if (strcmp(type , "w") == 0 && access(path, F_OK) == 0) {
                 printf("This file exists\n");
                 return NULL;
             } else if (strcmp(type , "r+") == 0 && access(path, F_OK) == -1) {
+                flag = true;
+                char *checker = (char *)calloc(maximum_size_of_input , sizeof(char));
+                strcpy(checker , path);
+                char *virtual_checker = (char *)calloc(maximum_size_of_input , sizeof(char));
+                virtual_checker[0] = '\0';
+                strtok(checker , "/");
+                while (checker != NULL)
+                {
+                    strcat(virtual_checker , checker);
+                    checker = strtok(NULL , "/");
+                    if (checker != NULL) {
+                        DIR* dir = opendir(virtual_checker);
+                        if (ENOENT == errno) {
+                            flag = false;
+                        }
+                        strcat(virtual_checker, "/");
+                    }
+                }
                 if (id == -1) {
-                    printf("This file doesn't exist\n");
+                    if (flag)
+                        printf("This file doesn't exist\n");
+                    else
+                        printf("This directory doesn't exist\n");
                 } else {
-                    printf("File %d doesn't exists\n" , id+1);
+                    if (flag)
+                        printf("File %d doesn't exist\n" , id+1);
+                    else
+                        printf("Directory of file %d doesn't exist\n");
                 }
                 return NULL;
             }
@@ -189,10 +206,6 @@ void insertstr(char *command , char *mode , char *paste)
     strcpy(resume , command);
     strtok(command , " ");
     int skip;
-    if (command == NULL || strcmp(command, "--file") != 0) {
-        printf("invalid command\n");
-        return;
-    }
     FILE *file = find_path(command , "r+" , &skip , -1);
     if (file == NULL) {
         return;
@@ -200,17 +213,7 @@ void insertstr(char *command , char *mode , char *paste)
     fclose(file);
     create_dot_file();
     file = fopen(pathes , "r+");
-    resume += (7 + skip);
-    if (resume == NULL)
-    {
-        printf("invalid command\n");
-        return;
-    }
-    resume++;
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return;
-    }
+    resume += (8 + skip);
     char *string = (char *)calloc(strlen(resume) + 1 , sizeof(char));
     if (strcmp(mode , "unnormal") == 0) {
         char *help = (char *) calloc(maximum_size_of_input, sizeof(char));
@@ -219,12 +222,7 @@ void insertstr(char *command , char *mode , char *paste)
         if (!flag)
             return;
         strcpy(resume, help);
-        resume += (skip + 6);
-        if (resume == NULL || resume[1] == '\0') {
-            printf("invalid command\n");
-            return;
-        }
-        resume++;
+        resume += (skip + 7);
     } else {
         strcpy(string , paste);
     }
@@ -506,7 +504,10 @@ void back_the_text(FILE *file , char *copy , int spaces , char *mode)
 
 void cat(char *command)
 {
-    command = strtok(NULL , " ");
+    command = strtok(NULL , "");
+    char *save = (char *)calloc(maximum_size_of_input , sizeof(char));
+    strcpy(save , command);
+    strtok(command , " ");
     if (command == NULL) {
         printf("invalid command\n");
         return;
@@ -517,6 +518,11 @@ void cat(char *command)
     }
     int skip;
     FILE *file = find_path(command , "r+" , &skip ,-1);
+    save += (7 + skip);
+    if (save[0] != '\0') {
+        save += 4;
+        is_arman = true;
+    }
     if (file == NULL) {
         return;
     }
@@ -524,14 +530,23 @@ void cat(char *command)
     while (now_char != EOF) {
         now_char = fgetc(file);
         if (now_char != EOF) {
-            printf("%c" , now_char);
+            if (is_arman) {
+                char a[2] = {now_char , '\0'};
+                strcat(arman_string , a);
+            } else
+                printf("%c" , now_char);
         }
         else {
-            printf("\n");
+            if (!is_arman)
+                printf("\n");
             break;
         }
     }
     fclose(file);
+    if (is_arman) {
+        is_arman = false;
+        arman(save);
+    }
 }
 
 void removestr(char *command , char *mode) {
@@ -855,6 +870,7 @@ void grep(char *command) {
     // mode == 0 normal -- mode == 1 -- -c -- mode == 2 -- -l
     command = strtok(NULL , "");
     char *newcommand = (char *) calloc(maximum_size_of_input , sizeof(char));
+    char *save = (char *)calloc(maximum_size_of_input , sizeof(char));
     strcpy(newcommand , "\0");
     strcpy(newcommand , command);
     char *pattern = (char *) calloc(maximum_size_of_input , sizeof(char));
@@ -873,8 +889,13 @@ void grep(char *command) {
         strtok(newcommand , " ");
         newcommand = strtok(NULL , "");
     }
-    find_string(newcommand, pattern , &skip);
-    command += (7 + skip);
+    if (!is_arman2) {
+        find_string(newcommand, pattern, &skip);
+        command += (7 + skip);
+    } else {
+        strcpy(pattern , arman_string);
+        is_arman2 = false;
+    }
     if (mode != 0)
         command += 3;
     strcpy(newcommand , command);
@@ -887,21 +908,38 @@ void grep(char *command) {
         i++;
         int before = lines;
         find_grep(file , pattern , i , mode , &lines);
-        if (before != lines && mode == 2)
-            printf("%s\n" , pathes);
+        if (before != lines && mode == 2) {
+            strcat(arman_string , pathes);
+            strcat(arman_string , "\n");
+        }
         fclose(file);
         file = NULL;
         command += 8+skip;
         if (command == NULL || command[0] == '\0')
             break;
         command++;
+        if (command[0] == '=')
+            break;
         strcpy(help , "--files ");
         strcat(help , command);
         strcpy(command , help);
         strcpy(newcommand , command);
     }
-    if (mode == 1)
-        printf("%d\n" , lines);
+    if (mode == 1) {
+        char num[100];
+        sprintf(num , "%d" , lines);
+        strcat(arman_string , num);
+        strcat(arman_string , "\n");
+    }
+    if (command[0] == '=') {
+        command += 3;
+        is_arman = true;
+    }
+    if (!is_arman)
+        printf("%s", arman_string);
+    else
+        arman(save);
+    is_arman = false;
 }
 
 void find_grep(FILE *file , char *pattern , int id , int mode , int *lines) {
@@ -912,7 +950,8 @@ void find_grep(FILE *file , char *pattern , int id , int mode , int *lines) {
     for (int i = 0; i < strlen(text); i++) {
         if (j == strlen(pattern)) {
             if (mode == 0) {
-                printf("%s: ", pathes);
+                strcat(arman_string , pathes);
+                strcat(arman_string , ": ");
                 print_the_line(text, last_enter, &i , mode);
             } if (mode == 1 || mode == 2)
                 print_the_line(text, last_enter, &i , mode);
@@ -939,12 +978,15 @@ void print_the_line(char *text , int last_enter , int *ind , int mode) {
     while (text[i] == '\n' || text[i] == '\0')
         i++;
     while (text[i] != '\n' && text[i] != '\0') {
-        if (mode == 0)
-            printf("%c" , text[i]);
+        if (mode == 0) {
+            char x[2] = {text[i] , '\0'};
+            strcat(arman_string , x);
+        }
         i++;
     }
-    if (mode == 0)
-        printf("\n");
+    if (mode == 0) {
+        strcat(arman_string , "\n");
+    }
     *ind = i;
 }
 
@@ -1090,39 +1132,58 @@ void find(char *command , char *replace) {
     bool options[4] = {false};
     int at;
     // 0 is count -- 1 is at -- 2 is byword -- 3 is all
-    char *newcommand = (char *)calloc(maximum_size_of_input , sizeof(char));
+    char *newcommand = (char *) calloc(maximum_size_of_input , sizeof(char));
     char *newcommand2 = (char *) calloc(maximum_size_of_input , sizeof(char));
+    char *save = (char *)calloc(maximum_size_of_input , sizeof(char));
     command = strtok(NULL , "");
     strcpy(newcommand , command);
     strcpy(newcommand2 , command);
     char *string = (char *)calloc(maximum_size_of_input , sizeof(char));
     char *all_text = (char *)calloc(maximum_size_of_input , sizeof(char));
     int skip;
-    is_find = true;
-    find_string(command , string , &skip);
-    is_find = false;
-    newcommand += (7 + skip);
-    newcommand2 += (7 + skip);
+    if (!is_arman2) {
+        is_find = true;
+        find_string(command, string, &skip);
+        is_find = false;
+        newcommand += (7 + skip);
+        newcommand2 += (7 + skip);
+    } else {
+        strcpy(string , arman_string);
+        is_arman2 = false;
+    }
     strtok(newcommand , " ");
     int null;
     FILE *file = find_path(newcommand , "r+" , &skip , null);
     newcommand2 += (7 + skip);
-    if (newcommand2[0] != '\0') {
-        newcommand2++;
-        strtok(newcommand2 , " ");
-        while (newcommand2 != NULL) {
-            if (strcmp(newcommand2 , "-count") == 0)
+    strcpy(command , newcommand2);
+    if (command[0] != '\0') {
+        command++;
+        strtok(command , " ");
+        while (command != NULL && command[0] != '\0' && command[0] != '=') {
+            if (strcmp(command, "-count") == 0)
                 options[0] = true;
-            if (strcmp(newcommand2 , "-at") == 0) {
+            if (strcmp(command , "-at") == 0) {
                 options[1] = true;
-                newcommand2 = strtok(NULL , " ");
-                at = atoi(newcommand2);
+                command = strtok(NULL , " ");
+                at = atoi(command);
             }
-            if (strcmp(newcommand2 , "-byword") == 0)
+            if (strcmp(command , "-byword") == 0)
                 options[2] = true;
-            if (strcmp(newcommand2 , "-all") == 0)
+            if (strcmp(command , "-all") == 0)
                 options[3] = true;
-            newcommand2 = strtok(NULL , " ");
+            if (command == NULL || command[0] == '\0' || command[0] == '=')
+                break;
+            command = strtok(NULL , " ");
+            if (command == NULL || command[0] == '\0' || command[0] == '=')
+                break;
+        }
+        if (command != NULL && command[0] != '\0' && command[0] == '=') {
+            command = strtok(NULL , "");
+            strcpy(save , "\0");
+            strcpy(save , command);
+            is_arman = true;
+        } else {
+            is_arman = false;
         }
     }
     int *first_pos = (int *) calloc(maximum_size_of_input , sizeof(int));
@@ -1248,55 +1309,139 @@ void find(char *command , char *replace) {
         }
         if (!is_replace) {
             if (options[0]) {
-                if (options[1] || options[2] || options[3])
-                    printf("These options cannot come together!\n");
-                else
-                    printf("%d\n", counter);
+                if (options[1] || options[2] || options[3]) {
+                    if (is_arman)
+                        strcat(arman_string , "These options cannot come together!");
+                    else
+                        printf("These options cannot come together!\n");
+                }
+                else {
+                    if (is_arman) {
+                        char num[100];
+                        sprintf(num, "%d", counter);
+                        strcat(arman_string, num);
+                    } else
+                        printf("%d\n", counter);
+                }
             } else {
                 if (options[1]) {
-                    if (options[3])
-                        printf("These options cannot come together!\n");
+                    if (options[3]) {
+                        if (is_arman)
+                            strcat(arman_string , "These options cannot come together!");
+                        else
+                            printf("These options cannot come together!\n");
+                    }
                     else {
                         if (options[2]) {
-                            if (at > counter)
-                                printf("-1\n");
-                            else
-                                printf("%d\n", word_finding(all_text, first_pos[at - 1]));
+                            if (at > counter) {
+                                if (is_arman)
+                                    strcat(arman_string , "-1");
+                                else
+                                    printf("-1\n");
+                            }
+                            else {
+                                int x = word_finding(all_text, first_pos[at - 1]);
+                                if (is_arman) {
+                                    char num[100];
+                                    sprintf(num , "%d" , x);
+                                    strcat(arman_string , num);
+                                } else {
+                                    printf("%d\n", word_finding(all_text, first_pos[at - 1]));
+                                }
+                            }
                         } else {
-                            if (at > counter)
-                                printf("-1\n");
-                            else
-                                printf("%d\n", first_pos[at - 1]);
+                            if (at > counter) {
+                                if (is_arman)
+                                    strcat(arman_string , "-1");
+                                else
+                                    printf("-1\n");
+                            }
+                            else {
+                                if (is_arman) {
+                                    char num[100];
+                                    sprintf(num , "%d" , first_pos[at - 1]);
+                                    strcat(arman_string , num);
+                                } else
+                                    printf("%d\n", first_pos[at - 1]);
+                            }
                         }
                     }
                 } else {
                     if (options[2]) {
                         if (options[3]) {
-                            if (counter == 0)
-                                printf("-1\n");
+                            if (counter == 0) {
+                                if (is_arman)
+                                    strcat(arman_string , "-1");
+                                else
+                                    printf("-1\n");
+                            }
                             else
-                                for (int i = 0; i != counter; i++)
-                                    printf("%d ", word_finding(all_text, first_pos[i]));
-                            printf("\n");
+                                for (int i = 0; i != counter; i++) {
+                                    int x = word_finding(all_text, first_pos[i]);
+                                    char num[100];
+                                    sprintf(num, "%d" , x);
+                                    if (is_arman) {
+                                        strcat(arman_string , num);
+                                        strcat(arman_string , " ");
+                                    } else {
+                                        printf("%d ", x);
+                                    }
+                                }
+                            if(!is_arman)
+                                printf("\n");
                         } else {
-                            if (counter == 0)
-                                printf("-1\n");
-                            else
-                                printf("%d\n", word_finding(all_text, first_pos[0]));
+                            if (counter == 0) {
+                                if (is_arman)
+                                    strcat(arman_string , "-1");
+                                else
+                                    printf("-1\n");
+                            }
+                            else {
+                                int x = word_finding(all_text , first_pos[0]);
+                                if (is_arman) {
+                                    char num[100];
+                                    sprintf(num , "%d" , x);
+                                    strcat(arman_string , num);
+                                } else {
+                                    printf("%d\n", word_finding(all_text, first_pos[0]));
+                                }
+                            }
                         }
                     } else {
                         if (options[3]) {
-                            if (counter == 0)
-                                printf("-1\n");
+                            if (counter == 0) {
+                                if (is_arman)
+                                    strcat(arman_string , "-1");
+                                else
+                                    printf("-1\n");
+                            }
                             else
-                                for (int i = 0; i != counter; i++)
-                                    printf("%d ", first_pos[i]);
-                            printf("\n");
+                                for (int i = 0; i != counter; i++) {
+                                    char num[100];
+                                    sprintf(num , "%d" , first_pos);
+                                    if (is_arman) {
+                                        strcat(arman_string , num);
+                                        strcat(arman_string , " ");
+                                    } else
+                                        printf("%d ", first_pos[i]);
+                                }
+                            if (!is_arman)
+                                printf("\n");
                         } else {
-                            if (1 > counter)
-                                printf("-1\n");
-                            else
-                                printf("%d\n", first_pos[0]);
+                            if (1 > counter) {
+                                if (is_arman)
+                                    strcat(arman_string , "-1");
+                                else
+                                    printf("-1\n");
+                            }
+                            else {
+                                if (is_arman) {
+                                    char num[100];
+                                    sprintf(num , "%d" , first_pos[0]);
+                                    strcat(arman_string , num);
+                                } else
+                                    printf("%d\n", first_pos[0]);
+                            }
                         }
                     }
                 }
@@ -1314,6 +1459,10 @@ void find(char *command , char *replace) {
                 fputc(all_text[i],file);
             }
             fclose(file);
+        }
+        if(is_arman) {
+            is_arman = false;
+            arman(save);
         }
 }
 
@@ -1335,9 +1484,14 @@ void replace(char *command) {
     char *str2 = (char *)calloc(maximum_size_of_input , sizeof(char));
     int skip;
     command = strtok(NULL , "");
-    strcpy(newcommand , command);
-    find_string(newcommand , str1, &skip);
-    command += (7 + skip);
+    if (!is_arman2) {
+        strcpy(newcommand, command);
+        find_string(newcommand, str1, &skip);
+        command += (7 + skip);
+    } else {
+        is_arman2 = false;
+        strcpy(str1 , arman_string);
+    }
     strcpy(newcommand , command);
     find_string(newcommand , str2 , &skip);
     command += (7 + skip);
@@ -1600,6 +1754,8 @@ void left_shifting(char *text , int ind , int size) {
 
 void text_comparator(char *command) {
     command = strtok(NULL, "");
+    char *save = (char *)calloc(maximum_size_of_input , sizeof(char));
+    strcpy(save , command);
     char *newcommand = (char *) calloc(maximum_size_of_input, sizeof(char));
     char *all_text1 = (char *) calloc(maximum_size_of_input, sizeof(char));
     char *all_text2 = (char *) calloc(maximum_size_of_input, sizeof(char));
@@ -1607,6 +1763,7 @@ void text_comparator(char *command) {
     strtok(command, " ");
     int skip;
     FILE *file = find_path(command, "r+", &skip, 0);
+    save += (8 + skip);
     fseek(file, 0, SEEK_END);
     save_text_from_first(file, all_text1);
     fclose(file);
@@ -1616,6 +1773,11 @@ void text_comparator(char *command) {
     strcat(newcommand, command);
     strtok(newcommand, " ");
     file = find_path(newcommand, "r+", &skip, 0);
+    save += skip;
+    if (save[0] != '\0') {
+        save += 3;
+        is_arman = true;
+    }
     fseek(file, 0, SEEK_END);
     save_text_from_first(file, all_text2);
     fclose(file);
@@ -1638,8 +1800,20 @@ void text_comparator(char *command) {
         }
         line2[y] = '\0';
         if (strcmp(line1, line2) != 0) {
-            printf("============ #%d ============\n", counter);
-            printf("%s\n%s\n", line1, line2);
+            if (is_arman) {
+                strcat(arman_string , "============ #");
+                char num[100];
+                sprintf(num , "%d" , counter);
+                strcat(arman_string , num);
+                strcat(arman_string , " ============\n");
+                strcat(arman_string , line1);
+                strcat(arman_string , "\n");
+                strcat(arman_string , line2);
+                strcat(arman_string , "\n");
+            } else {
+                printf("============ #%d ============\n", counter);
+                printf("%s\n%s\n", line1, line2);
+            }
         }
         counter++;
         if (all_text1[i] == '\0')
@@ -1657,21 +1831,59 @@ void text_comparator(char *command) {
             for (int k = j; k != strlen(all_text2); k++)
                 if (all_text2[k] == '\n')
                     lines++;
-            printf(">>>>>>>>>>>> #%d - #%d >>>>>>>>>>>>\n", counter, counter + lines);
-            for (int k = j; k != strlen(all_text2); k++)
-                printf("%c", all_text2[k]);
-            printf("\n");
+            if (is_arman) {
+                strcat(arman_string , ">>>>>>>>>>>> #");
+                char num[100];
+                sprintf(num , "%d" , counter);
+                strcat(arman_string , num);
+                strcat(arman_string , " - #");
+                sprintf(num , "%d" , lines + counter);
+                strcat(arman_string , num);
+                strcat(arman_string, " >>>>>>>>>>>>\n");
+                for (int k = j; k != strlen(all_text2); k++) {
+                    char x[2] = {all_text2[k] , '\0'};
+                    strcat(arman_string , x);
+                }
+                strcat(arman_string , "\n");
+            } else {
+                printf(">>>>>>>>>>>> #%d - #%d >>>>>>>>>>>>\n", counter, counter + lines);
+                for (int k = j; k != strlen(all_text2); k++)
+                    printf("%c", all_text2[k]);
+                printf("\n");
+            }
     } else {
         i++;
         int lines = 0;
         for (int k = i; k != strlen(all_text1); k++)
             if (all_text1[k] == '\n')
                 lines++;
-        printf("<<<<<<<<<<<< #%d - #%d <<<<<<<<<<<<\n", counter, counter + lines);
-        for (int k = i; k != strlen(all_text1); k++)
-            printf("%c", all_text1[k]);
-        printf("\n");
+        if (is_arman) {
+            strcat(arman_string , "<<<<<<<<<<<< #");
+            char num[100];
+            sprintf(num , "%d" , counter);
+            strcat(arman_string , num);
+            strcat(arman_string , " - #");
+            sprintf(num , "%d" , lines + counter);
+            strcat(arman_string , num);
+            strcat(arman_string, " <<<<<<<<<<<<\n");
+            for (int k = i; k != strlen(all_text1); k++) {
+                char x[2] = {all_text1[k] , '\0'};
+                strcat(arman_string , x);
+            }
+            strcat(arman_string , "\n");
+        } else {
+            printf("<<<<<<<<<<<< #%d - #%d <<<<<<<<<<<<\n", counter, counter + lines);
+            for (int k = i; k != strlen(all_text1); k++)
+                printf("%c", all_text1[k]);
+            printf("\n");
+        }
     }
+    }
+    if (is_arman) {
+        is_arman = false;
+        arman(save);
+    } else {
+        printf("%s" , arman_string);
     }
 }
 
@@ -1682,10 +1894,20 @@ void tree(char *command){
         printf("invalid depth!\n");
         return;
     }
+    command = strtok(NULL , " ");
+    if (command != NULL) {
+        command = strtok(NULL , "");
+        strcpy(arman_string, "\0");
+        is_arman = true;
+    }
     char *path = (char *)calloc(maximum_size_of_input , sizeof(char));
     strcpy(path , "root");
     bool *last_l = (bool *)calloc(maximum_size_of_input , sizeof(bool));
     show_tree(path , 0 , 0 , last_l , depth);
+    if (is_arman) {
+        arman(command);
+        is_arman = false;
+    }
 }
 
 void show_tree(char *path , int root ,int level , bool last_l[] , int depth) {
@@ -1715,23 +1937,44 @@ void show_tree(char *path , int root ,int level , bool last_l[] , int depth) {
         if (strcmp(dp->d_name , ".") != 0 && strcmp(dp->d_name , "..") != 0  && ((attr & FILE_ATTRIBUTE_HIDDEN) == 0)) {
             for (int i = 0; i < root; i++) {
                 if (i % 4 == 0 && i >= 4 &&!last_l[(i/4)-1]) {
-                    printf("%c", 179);
+                    unsigned char a[2] = {179 , 0};
+                    if (is_arman)
+                        strcat(arman_string , a);
+                    else
+                        printf("%c", 179);
                 } else {
-                    printf(" ");
+                    char a[2] = {' ' , 0};
+                    if (is_arman)
+                        strcat(arman_string , a);
+                    else
+                        printf(" ");
                 }
             }
             if (level != 0) {
+                unsigned char a[6] = {192 , 196 , 196 , 196 , '\0'};
+                unsigned char b[6] = {195 , 196 , 196 , 196 , '\0'};
                 if (counter2 == counter-1) {
                     last_l[level] = true;
-                    printf("%c%c%c%c", 192, 196 , 196 , 196 ,dp->d_name);
+                    if (is_arman)
+                        strcat(arman_string , a);
+                    else
+                        printf("%c%c%c%c", 192, 196 , 196 , 196);
                 } else {
-                    printf("%c%c%c%c", 195, 196 , 196 , 196 ,dp->d_name);
+                    if (is_arman)
+                        strcat(arman_string , b);
+                    else
+                        printf("%c%c%c%c", 195, 196 , 196 , 196);
                 }
             } else {
                 if (counter2 == counter-1)
                     last_l[level] = true;
             }
-            printf("%s\n" , dp->d_name);
+            if (is_arman) {
+                strcat(arman_string , dp->d_name);
+                strcat(arman_string , "\n");
+            } else {
+                printf("%s\n", dp->d_name);
+            }
             counter2++;
             show_tree(new_path , root + 4, level+1 , last_l , depth);
         }
@@ -1739,20 +1982,30 @@ void show_tree(char *path , int root ,int level , bool last_l[] , int depth) {
     closedir(dir);
 }
 
+void arman(char *command) {
+    is_arman2 = true;
+    is_arman = false;
+    strtok(command , " ");
+    if (strcmp(command , "find") == 0) {
+        find(command , NULL);
+    } else if (strcmp(command , "insertstr") == 0) {
+        insertstr(command , "normal" , arman_string);
+    } else if (strcmp(command , "grep") == 0) {
+        grep(command);
+    } else if (strcmp(command , "replace") == 0) {
+        replace(command);
+    }
+    strcpy(arman_string , "\0");
+    is_arman2 = false;
+}
 
 
-
-
-// invalid inputs must check
 // eof error in removestr
 // checking pos for all :(
-// .txt is not important :(
 // backslash gheir mortabet
 // enter and eof is ignored in find
 // bb test is remaining
-// no such directory or file
 // bad position
-// .txt no
 // undo without an dollar file
 // undo and undo
 // Za avvale matn ba searche *Za
@@ -1762,3 +2015,4 @@ void show_tree(char *path , int root ,int level , bool last_l[] , int depth) {
 // find one message no two messages
 // undo of auto indent and replace
 // tree bug (in file 1)
+// grep in last word of file
