@@ -13,7 +13,7 @@ unsigned char arman_string[maximum_size_of_input];
 void main_function(); // this function is the input receiver of the program
 void createfile(char *); // this function creates a .txt file with specified path
 FILE *open_or_create_file(char * , char* , int); // this function open an existing file or creates a new file by supposed path
-void insertstr(char * , char * , char *); // command 2
+void insertstr(char * , char * , unsigned char *); // command 2
 FILE *find_path(char * , char * , int * , int); // this function find path of a command
 bool find_string(char * , char * , int *); // this function find string after --str and saves it ro second argument
 bool find_position(char * , int * , int *); // this function find positon after --pos and if it has bad syntax return 0
@@ -199,7 +199,7 @@ FILE *open_or_create_file(char *path , char *type , int id)
     }
 }
 
-void insertstr(char *command , char *mode , char *paste)
+void insertstr(char *command , char *mode , unsigned char *paste)
 {
     command = strtok(NULL , "");
     char *resume = (char *) calloc(maximum_size_of_input , sizeof(char));
@@ -214,7 +214,7 @@ void insertstr(char *command , char *mode , char *paste)
     create_dot_file();
     file = fopen(pathes , "r+");
     resume += (8 + skip);
-    char *string = (char *)calloc(maximum_size_of_input , sizeof(char));
+    unsigned char *string = (unsigned char *)calloc(maximum_size_of_input , sizeof(char));
     if (strcmp(mode , "unnormal") == 0) {
         char *help = (char *) calloc(maximum_size_of_input, sizeof(char));
         strcpy(help, resume);
@@ -1728,7 +1728,7 @@ void text_comparator(char *command) {
     file = find_path(newcommand, "r+", &skip, 0);
     save += skip;
     if (save[0] != '\0') {
-        save += 3;
+        save += 4;
         is_arman = true;
     }
     fseek(file, 0, SEEK_END);
@@ -1954,3 +1954,4 @@ void arman(char *command) {
 }
 
 // Tree bug
+// Find bug
