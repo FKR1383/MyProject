@@ -1,9 +1,18 @@
-AAAA
-BBBB
-CCCC
-\DDDD
-sdkl23skdls
-sdkla23dkasldk
-dvfkdj23fkdjkd
-dsfkldk23sl
-23
+int ma
+a.txt
+New folder
+    ÃÄÄÄNew folder2
+    ³   ÀÄÄÄ1.txt
+    ÀÄÄÄNew Text Document.mp4
+New folder (2)
+    ÃÄÄÄ3
+    ³   ÀÄÄÄNew Text Document.txt
+    ÃÄÄÄ4
+    ÀÄÄÄNew folder
+    ³   ÃÄÄÄNew folder
+    ³       ÀÄÄÄNew folder
+    ³           ÀÄÄÄNew folder
+    ³               ÀÄÄÄNew Text Document.txt
+    ³   ÀÄÄÄNew Text Document.txt
+z
+ain(void) {int a, b; for (int j = 0; j != a; j++) {if(x == 2) {z++; f++;} for (int k = 0; k != 5; k++) {d++;}}}

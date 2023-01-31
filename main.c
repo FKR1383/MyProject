@@ -23,7 +23,7 @@ void back_the_text(FILE * , char * , int , char *); // this function pastes the 
 void cat(char *); // command 3
 void removestr(char * , char *); // command 4
 bool find_size(char * , int *); // this function converts a string to an integer
-void find_first_position_with_size(FILE * , int , int , int , int); // this function finds the first position (according to -b and -f) and pushes the file pointer to that position
+bool find_first_position_with_size(FILE * , int , int , int , int); // this function finds the first position (according to -b and -f) and pushes the file pointer to that position
 // file pointer , line , col , size , mode (-b or -f)
 void save_text_from_first(FILE * , char *); // this function copies some texts that starts from first of file
 void append(FILE * , char *); // this function appends a text to the end of file
@@ -163,7 +163,7 @@ FILE *open_or_create_file(char *path , char *type , int id)
                     if (flag)
                         printf("File %d doesn't exist\n" , id+1);
                     else
-                        printf("Directory of file %d doesn't exist\n");
+                        printf("Directory of file %d doesn't exist\n" , id+1);
                 }
                 return NULL;
             }
@@ -214,13 +214,11 @@ void insertstr(char *command , char *mode , char *paste)
     create_dot_file();
     file = fopen(pathes , "r+");
     resume += (8 + skip);
-    char *string = (char *)calloc(strlen(resume) + 1 , sizeof(char));
+    char *string = (char *)calloc(maximum_size_of_input , sizeof(char));
     if (strcmp(mode , "unnormal") == 0) {
         char *help = (char *) calloc(maximum_size_of_input, sizeof(char));
         strcpy(help, resume);
         bool flag = find_string(resume, string, &skip);
-        if (!flag)
-            return;
         strcpy(resume, help);
         resume += (skip + 7);
     } else {
@@ -229,7 +227,8 @@ void insertstr(char *command , char *mode , char *paste)
     int line = 0 , col = 0;
     bool flag = find_position(resume , &line , &col);
     if (!flag) {
-        printf("invalid command\n");
+        printf("invalid position\n");
+        fclose(file);
         return;
     }
     int null;
@@ -255,16 +254,7 @@ void insertstr(char *command , char *mode , char *paste)
 FILE *find_path(char *resume, char *type , int *skip , int id)
 {
     // this function starts with --file
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return NULL;
-    }
     resume = strtok(NULL , "");
-    if (resume == NULL)
-    {
-        printf("invalid command\n");
-        return NULL;
-    }
     if (resume[0] == '/') {
         strtok(resume , " ");
         char *path = (char *) calloc(strlen(resume)+1 , sizeof(char));
@@ -292,16 +282,8 @@ bool find_string(char *resume , char *string , int *skip)
     // this function starts with --str
     char *help = (char *) calloc(maximum_size_of_input, sizeof(char));
     strtok(resume, " ");
-    if (resume == NULL || strcmp(resume, "--str") != 0) {
-        printf("invalid command\n");
-        return false;
-    }
     resume = strtok(NULL, "");
     strcpy(help, resume);
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return false;
-    }
     if (resume[0] != '\"') {
         strtok(resume, " ");
         int j = 0, i = 0;
@@ -403,6 +385,8 @@ bool find_position(char *pos , int *line , int *col)
         *col += (pos[i] - '0');
         i++;
     }
+    if ((*line) == 0)
+        return false;
     return true;
 }
 
@@ -425,8 +409,9 @@ bool go_to_position(FILE *file , int line , int col , char *mode , int *moved)
             break;
     }
     if (now_line < line) {
-        if (strcmp(mode , "insert") != 0)
+        if (strcmp(mode , "insert") != 0) {
             return false;
+        }
         while (line > now_line) {
             fputc('\n' , file);
             now_line++;
@@ -473,6 +458,7 @@ bool go_to_position(FILE *file , int line , int col , char *mode , int *moved)
             back_the_text(file2 , copy , col - now_col , "first_time");
         }
     }
+    return true;
 }
 
 void save_text(FILE *file , char *copy)
@@ -508,14 +494,6 @@ void cat(char *command)
     char *save = (char *)calloc(maximum_size_of_input , sizeof(char));
     strcpy(save , command);
     strtok(command , " ");
-    if (command == NULL) {
-        printf("invalid command\n");
-        return;
-    }
-    if (strcmp(command , "--file") != 0) {
-        printf("invalid command\n");
-        return;
-    }
     int skip;
     FILE *file = find_path(command , "r+" , &skip ,-1);
     save += (7 + skip);
@@ -556,85 +534,45 @@ void removestr(char *command , char *mode) {
     char *resume = (char *) calloc(maximum_size_of_input , sizeof(char));
     strcpy(resume , command);
     strtok(command , " ");
-    if (command == NULL || strcmp(command , "--file") != 0) {
-        printf("invalid command\n");
-        return;
-    }
     int skip;
     FILE *file = find_path(command , "r+", &skip , -1);
     if (file == NULL) {
-        printf("invalid command\n");
         return;
     }
     fclose(file);
     create_dot_file();
     file = fopen(pathes , "r+");
-    resume += 7 + skip;
-    if (resume == NULL || resume[0] != ' ') {
-        printf("invalid command\n");
-        return;
-    }
-    resume += 1;
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return;
-    }
+    resume += 8 + skip;
     char *pos = (char *)calloc(strlen(resume) + 1 ,sizeof(char));
     char *pos2 = (char *)calloc(strlen(resume) + 1 ,sizeof(char));
     strcpy(pos , resume);
     pos2[0] = '\0';
     int line , col;
     strtok(pos , " ");
-    if (pos == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     strcat(pos2 , pos);
     pos = strtok(NULL , " ");
-    if (pos == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     strcat(pos2 , " ");
     strcat(pos2 , pos);
     bool flag = find_position(pos2 , &line , &col);
     if (!flag) {
         printf("invalid command\n");
+        fclose(file);
         return;
     }
     strcpy(resume , pos);
     resume += strlen(pos2);
-    if (resume == NULL || resume[0] != ' ') {
-        printf("invalid command\n");
-        return;
-    }
     resume++;
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     strtok(resume , " ");
     resume = strtok(NULL , " ");
-    if (resume == NULL || strcmp(resume , "-size") != 0) {
-        printf("invalid command\n");
-        return;
-    }
     resume = strtok(NULL , " ");
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     int size;
     flag = find_size(resume , &size);
     if (!flag) {
-        printf("invalid command\n");
+        printf("invalid size\n");
+        fclose(file);
         return;
     }
     resume = strtok(NULL , " ");
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     int direction;
     if (strcmp(resume , "-b") == 0)
         direction = -1;
@@ -642,9 +580,14 @@ void removestr(char *command , char *mode) {
         direction = 1;
     else {
         printf("invalid command\n");
+        fclose(file);
         return;
     }
-    find_first_position_with_size(file , line , col , size , direction);
+    if (!find_first_position_with_size(file , line , col , size , direction)) {
+        printf("invalid position!\n");
+        fclose(file);
+        return;
+    }
     FILE *file2 = file;
     char *copy1 = (char *)calloc(maximum_size_of_input , sizeof(char));
     save_text_from_first(file2 , copy1);
@@ -691,26 +634,42 @@ bool find_size(char *size , int *result){
     return true;
 }
 
-void find_first_position_with_size(FILE *file , int line , int col , int size , int type) {
+bool find_first_position_with_size(FILE *file , int line , int col , int size , int type) {
     int moved = 0;
+    bool flag;
     if (type == 1) {
+        flag = go_to_position(file , line , col , "remove" , &moved);
+        if (!flag) {
+            return false;
+        }
+        int i;
+        for (i = 0; i != size; i++) {
+            if (fgetc(file) == EOF)
+                return false;
+        }
+        fseek(file , 0 , SEEK_SET);
         go_to_position(file , line , col , "remove" , &moved);
     } else {
-        go_to_position(file , line , col , "remove" , &moved);
+        flag = go_to_position(file , line , col , "remove" , &moved);
+        if (!flag)
+            return false;
         moved = ftell(file);
         fseek(file , 0 , SEEK_SET);
         int chars = 0;
         char check;
-        while (ftell(file) <= moved) {
+        while (ftell(file) < moved) {
             check = fgetc(file);
             chars++;
             if (check == EOF)
                 fputc('\0' , file);
         }
         fseek(file, 0, SEEK_SET);
-        for (int i = 0; i != chars - size - 1; i++)
+        if (chars - size < 0)
+            return false;
+        for (int i = 0; i < chars - size; i++)
             fgetc(file);
     }
+    return true;
 }
 
 void save_text_from_first(FILE *file , char *copy) {
@@ -735,85 +694,46 @@ void copystr(char *command) {
     char *resume = (char *) calloc(maximum_size_of_input , sizeof(char));
     strcpy(resume , command);
     strtok(command , " ");
-    if (command == NULL || strcmp(command , "--file") != 0) {
-        printf("invalid command\n");
-        return;
-    }
     int skip;
     FILE *file = find_path(command , "r+", &skip , -1);
     if (file == NULL) {
-        printf("invalid command\n");
         return;
     }
     fclose(file);
     create_dot_file();
     file = fopen(pathes , "r+");
     resume += 7 + skip;
-    if (resume == NULL || resume[0] != ' ') {
-        printf("invalid command\n");
-        return;
-    }
     resume += 1;
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     char *pos = (char *)calloc(strlen(resume) + 1 ,sizeof(char));
     char *pos2 = (char *)calloc(strlen(resume) + 1 ,sizeof(char));
     strcpy(pos , resume);
     pos2[0] = '\0';
     int line , col;
     strtok(pos , " ");
-    if (pos == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     strcat(pos2 , pos);
     pos = strtok(NULL , " ");
-    if (pos == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     strcat(pos2 , " ");
     strcat(pos2 , pos);
     bool flag = find_position(pos2 , &line , &col);
     if (!flag) {
-        printf("invalid command\n");
+        printf("invalid position\n");
+        fclose(file);
         return;
     }
     strcpy(resume , pos);
     resume += strlen(pos2);
-    if (resume == NULL || resume[0] != ' ') {
-        printf("invalid command\n");
-        return;
-    }
     resume++;
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     strtok(resume , " ");
     resume = strtok(NULL , " ");
-    if (resume == NULL || strcmp(resume , "-size") != 0) {
-        printf("invalid command\n");
-        return;
-    }
     resume = strtok(NULL , " ");
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     int size;
     flag = find_size(resume , &size);
     if (!flag) {
-        printf("invalid command\n");
+        printf("invalid size\n");
+        fclose(file);
         return;
     }
     resume = strtok(NULL , " ");
-    if (resume == NULL) {
-        printf("invalid command\n");
-        return;
-    }
     int direction;
     if (strcmp(resume , "-b") == 0)
         direction = -1;
@@ -821,9 +741,15 @@ void copystr(char *command) {
         direction = 1;
     else {
         printf("invalid command\n");
+        fclose(file);
         return;
     }
-    find_first_position_with_size(file , line , col , size , direction);
+    flag = find_first_position_with_size(file , line , col , size , direction);
+    if (!flag) {
+        fclose(file);
+        printf("invalid position!\n");
+        return;
+    }
     FILE *file2 = file;
     char *copy = (char *)calloc(maximum_size_of_input , sizeof(char));
     int i;
@@ -846,7 +772,6 @@ void copystr(char *command) {
 
 void cutstr(char *command) {
     removestr(command , "cut");
-    // har chi talash kardam ke tarkibi az copy va remove beshe, nashod :(
 }
 
 void pastestr(char *command) {
@@ -892,6 +817,7 @@ void grep(char *command) {
     if (!is_arman2) {
         find_string(newcommand, pattern, &skip);
         command += (7 + skip);
+        strcpy(arman_string , "\0");
     } else {
         strcpy(pattern , arman_string);
         is_arman2 = false;
@@ -905,6 +831,20 @@ void grep(char *command) {
         if (newcommand == NULL)
             break;
         FILE *file = find_path(newcommand , "r+" , &skip , i);
+        if (file == NULL) {
+            i++;
+            command += 8+skip;
+            if (command == NULL || command[0] == '\0')
+                break;
+            command++;
+            if (command[0] == '=')
+                break;
+            strcpy(help , "--files ");
+            strcat(help , command);
+            strcpy(command , help);
+            strcpy(newcommand , command);
+            continue;
+        }
         i++;
         int before = lines;
         find_grep(file , pattern , i , mode , &lines);
@@ -934,11 +874,16 @@ void grep(char *command) {
     if (command[0] == '=') {
         command += 3;
         is_arman = true;
+        strcpy(save , "\0");
+        strcat(save , command);
+
     }
     if (!is_arman)
         printf("%s", arman_string);
-    else
+    else {
+        arman_string[strlen(arman_string)-2] = '\0';
         arman(save);
+    }
     is_arman = false;
 }
 
@@ -947,7 +892,7 @@ void find_grep(FILE *file , char *pattern , int id , int mode , int *lines) {
     fseek(file , 0 , SEEK_END);
     save_text_from_first(file , text);
     int last_enter = -1 , j = 0;
-    for (int i = 0; i < strlen(text); i++) {
+    for (int i = 0; i <= strlen(text); i++) {
         if (j == strlen(pattern)) {
             if (mode == 0) {
                 strcat(arman_string , pathes);
@@ -1008,9 +953,9 @@ void create_backup_file() {
     backup_address[i+1] = '\0';
     FILE *file = fopen(backup_address , "w");
     fclose(file);
-    int attr = GetFileAttributes("file.txt");
+    int attr = GetFileAttributes(backup_address);
     if ((attr & FILE_ATTRIBUTE_HIDDEN) == 0) {
-        SetFileAttributes("file.txt", attr | FILE_ATTRIBUTE_HIDDEN);
+        SetFileAttributes(backup_address, attr | FILE_ATTRIBUTE_HIDDEN);
     }
     file = fopen(backup_address , "r+");
     fclose(file);
@@ -1109,9 +1054,10 @@ void undo(char *command) {
     }
     dollar_file[i+1] = '\0';
     fclose(file);
-    file = fopen(dollar_file , "r+");
-    save_text_from_first(file , all_text_dollar);
-    fclose(file);
+    FILE *file1 = fopen(dollar_file , "r+");
+    fseek(file1 , 0 , SEEK_END);
+    save_text_from_first(file1 , all_text_dollar);
+    fclose(file1);
     file = fopen(pathes , "w");
     for (int i = 0; i != strlen(all_text_dollar); i++)
         fputc(all_text_dollar[i] , file);
@@ -1191,34 +1137,51 @@ void find(char *command , char *replace) {
     bool successful_replace = false;
     int counter = 0;
     save_text(file , all_text);
-        int j = 0, start = 0;
-        for (int i = 0; i <= strlen(all_text); i++) {
-            if (j == strlen(string)) {
-                if (string[0] == 127) {
-                    int l = start;
-                    while (l >= 0 && all_text[l] != ' ' && all_text[l] != ' ' && all_text[l] != '\n')
-                        l--;
-                    *(first_pos + counter) = l+1;
-                    *(second_pos + counter) = i;
-                    int end = start;
-                    while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
-                        end++;
-                    i = end + 1;
-                    j = 0;
-                } else if (string[strlen(string) - 1] == 127) {
-                    *(first_pos + counter) = start;
-                    int end = start;
-                    while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
-                        end++;
-                    i = end + 1;
-                    *(second_pos + counter) = end;
-                    j = 0;
+    int j = 0, start = 0;
+    for (int i = 0; i <= strlen(all_text); i++) {
+        if (j == strlen(string)) {
+            if (string[0] == 127) {
+                int l = start;
+                while (l >= 0 && all_text[l] != ' ' && all_text[l] != ' ' && all_text[l] != '\n')
+                    l--;
+                *(first_pos + counter) = l+1;
+                *(second_pos + counter) = i;
+                int end = start;
+                while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
+                    end++;
+                i = end + 1;
+                j = 0;
+            } else if (string[strlen(string) - 1] == 127) {
+                *(first_pos + counter) = start;
+                int end = start;
+                while (all_text[end] != '\n' && all_text[end] != '\0' && all_text[end] != ' ')
+                    end++;
+                i = end + 1;
+                *(second_pos + counter) = end;
+                j = 0;
+            } else {
+                *(first_pos + counter) = start;
+                *(second_pos + counter) = i;
+                j = 0;
+                i = start + 1;
+            }
+            if (is_replace) {
+                if (options[1]) {
+                    if (at-1 == counter) {
+                        successful_replace = true;
+                        i = replacing_the_word(all_text , *(first_pos + counter) , *(second_pos + counter)-1 , replace);
+                    }
                 } else {
-                    *(first_pos + counter) = start;
-                    *(second_pos + counter) = i;
-                    j = 0;
-                    i = start + 1;
+                    successful_replace = true;
+                    i = replacing_the_word(all_text , *(first_pos + counter) , *(second_pos + counter)-1 , replace);
                 }
+            }
+            counter++;
+        }
+        if (i >= strlen(all_text)) {
+            if (string[j] == 127 && j == strlen(string) - 1) {
+                *(first_pos + counter) = start;
+                *(second_pos + counter) = i;
                 if (is_replace) {
                     if (options[1]) {
                         if (at-1 == counter) {
@@ -1232,239 +1195,228 @@ void find(char *command , char *replace) {
                 }
                 counter++;
             }
-            if (i >= strlen(all_text)) {
-                if (string[j] == 127 && j == strlen(string) - 1) {
-                    *(first_pos + counter) = start;
-                    *(second_pos + counter) = i;
-                    if (is_replace) {
-                        if (options[1]) {
-                            if (at-1 == counter) {
-                                successful_replace = true;
-                                i = replacing_the_word(all_text , *(first_pos + counter) , *(second_pos + counter)-1 , replace);
-                            }
-                        } else {
-                            successful_replace = true;
-                            i = replacing_the_word(all_text , *(first_pos + counter) , *(second_pos + counter)-1 , replace);
-                        }
-                    }
-                    counter++;
-                }
-                break;
-            }
-            if (j == 0)
-                start = i;
-            if (string[j] == 127) {
-                if (j == 0 || string[j - 1] == ' ') {
+            break;
+        }
+        if (j == 0)
+            start = i;
+        if (string[j] == 127) {
+            if (j == 0 || string[j - 1] == ' ') {
+                j++;
+                while (string[j] != ' ' && string[j] != '\0')
                     j++;
+                j--;
+                while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
+                    i++;
+                }
+                i--;
+                bool flag = false;
+                int started_j = j , started_i = i;
+                while (i != -1 && all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
+                    if (all_text[i] == string[j]) {
+                        if (!flag)
+                            started_i = i;
+                        flag = true;
+                        j--;
+                    } else if (string[j] == 127) {
+                        break;
+                    } else if (flag) {
+                        flag = false;
+                        j = started_j;
+                        i = started_i;
+                    }
+                    i--;
+                }
+                while (i != 0 && all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0')
+                    i--;
+                if (string[j] == 127) {
+                    i++;
+                    while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0')
+                        i++;
+                    i--;
                     while (string[j] != ' ' && string[j] != '\0')
                         j++;
-                    j--;
-                    while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
-                        i++;
-                    }
-                    i--;
-                    bool flag = false;
-                    int started_j = j;
-                    while (i != 0 && all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
-                        if (all_text[i] == string[j]) {
-                            flag = true;
-                            j--;
-                        } else if (string[j] == 127) {
-                            break;
-                        } else if (flag) {
-                            flag = false;
-                            j = started_j;
-                        }
-                        i--;
-                    }
-                    while (i != 0 && all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0')
-                        i--;
-                    if (string[j] == 127) {
-                        i++;
-                        while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0')
-                            i++;
-                        i--;
-                        while (string[j] != ' ' && string[j] != '\0')
-                            j++;
-                    }
-                    if (string[j] != ' ' && string[j] != '\0') {
-                        i = start;
-                        j = 0;
-                    }
-                } else {
-                    j++;
-                    while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
-                        i++;
-                    }
-                    i--;
                 }
-            } else {
-                if (all_text[i] == string[j])
-                    j++;
-                else {
+                if (string[j] != ' ' && string[j] != '\0') {
                     i = start;
                     j = 0;
                 }
+            } else {
+                j++;
+                while (all_text[i] != ' ' && all_text[i] != '\n' && all_text[i] != '\0') {
+                    i++;
+                }
+                i--;
+            }
+        } else {
+            if (all_text[i] == string[j])
+                j++;
+            else {
+                i = start;
+                j = 0;
             }
         }
-        if (!is_replace) {
-            if (options[0]) {
-                if (options[1] || options[2] || options[3]) {
+    }
+    if (!is_replace) {
+        if (options[0]) {
+            if (options[1] || options[2] || options[3]) {
+                if (is_arman)
+                    strcat(arman_string , "These options cannot come together!");
+                else
+                    printf("These options cannot come together!\n");
+            }
+            else {
+                if (is_arman) {
+                    char num[100];
+                    sprintf(num, "%d", counter);
+                    strcat(arman_string, num);
+                } else
+                    printf("%d\n", counter);
+            }
+        } else {
+            if (options[1]) {
+                if (options[3]) {
                     if (is_arman)
                         strcat(arman_string , "These options cannot come together!");
                     else
                         printf("These options cannot come together!\n");
                 }
                 else {
-                    if (is_arman) {
-                        char num[100];
-                        sprintf(num, "%d", counter);
-                        strcat(arman_string, num);
-                    } else
-                        printf("%d\n", counter);
+                    if (options[2]) {
+                        if (at > counter) {
+                            if (is_arman)
+                                strcat(arman_string , "-1");
+                            else
+                                printf("-1\n");
+                        }
+                        else {
+                            int x = word_finding(all_text, first_pos[at - 1]);
+                            if (is_arman) {
+                                char num[100];
+                                sprintf(num , "%d" , x);
+                                strcat(arman_string , num);
+                            } else {
+                                printf("%d\n", word_finding(all_text, first_pos[at - 1]));
+                            }
+                        }
+                    } else {
+                        if (at > counter) {
+                            if (is_arman)
+                                strcat(arman_string , "-1");
+                            else
+                                printf("-1\n");
+                        }
+                        else {
+                            if (is_arman) {
+                                char num[100];
+                                sprintf(num , "%d" , first_pos[at - 1]);
+                                strcat(arman_string , num);
+                            } else
+                                printf("%d\n", first_pos[at - 1]);
+                        }
+                    }
                 }
             } else {
-                if (options[1]) {
+                if (options[2]) {
                     if (options[3]) {
-                        if (is_arman)
-                            strcat(arman_string , "These options cannot come together!");
+                        if (counter == 0) {
+                            if (is_arman)
+                                strcat(arman_string , "-1");
+                            else
+                                printf("-1\n");
+                        }
                         else
-                            printf("These options cannot come together!\n");
-                    }
-                    else {
-                        if (options[2]) {
-                            if (at > counter) {
-                                if (is_arman)
-                                    strcat(arman_string , "-1");
-                                else
-                                    printf("-1\n");
-                            }
-                            else {
-                                int x = word_finding(all_text, first_pos[at - 1]);
+                            for (int i = 0; i != counter; i++) {
+                                int x = word_finding(all_text, first_pos[i]);
+                                char num[100];
+                                sprintf(num, "%d" , x);
                                 if (is_arman) {
-                                    char num[100];
-                                    sprintf(num , "%d" , x);
                                     strcat(arman_string , num);
+                                    strcat(arman_string , " ");
                                 } else {
-                                    printf("%d\n", word_finding(all_text, first_pos[at - 1]));
+                                    printf("%d ", x);
                                 }
                             }
-                        } else {
-                            if (at > counter) {
-                                if (is_arman)
-                                    strcat(arman_string , "-1");
-                                else
-                                    printf("-1\n");
-                            }
-                            else {
-                                if (is_arman) {
-                                    char num[100];
-                                    sprintf(num , "%d" , first_pos[at - 1]);
-                                    strcat(arman_string , num);
-                                } else
-                                    printf("%d\n", first_pos[at - 1]);
+                        if(!is_arman)
+                            printf("\n");
+                    } else {
+                        if (counter == 0) {
+                            if (is_arman)
+                                strcat(arman_string , "-1");
+                            else
+                                printf("-1\n");
+                        }
+                        else {
+                            int x = word_finding(all_text , first_pos[0]);
+                            if (is_arman) {
+                                char num[100];
+                                sprintf(num , "%d" , x);
+                                strcat(arman_string , num);
+                            } else {
+                                printf("%d\n", word_finding(all_text, first_pos[0]));
                             }
                         }
                     }
                 } else {
-                    if (options[2]) {
-                        if (options[3]) {
-                            if (counter == 0) {
-                                if (is_arman)
-                                    strcat(arman_string , "-1");
-                                else
-                                    printf("-1\n");
-                            }
+                    if (options[3]) {
+                        if (counter == 0) {
+                            if (is_arman)
+                                strcat(arman_string , "-1");
                             else
-                                for (int i = 0; i != counter; i++) {
-                                    int x = word_finding(all_text, first_pos[i]);
-                                    char num[100];
-                                    sprintf(num, "%d" , x);
-                                    if (is_arman) {
-                                        strcat(arman_string , num);
-                                        strcat(arman_string , " ");
-                                    } else {
-                                        printf("%d ", x);
-                                    }
-                                }
-                            if(!is_arman)
-                                printf("\n");
-                        } else {
-                            if (counter == 0) {
-                                if (is_arman)
-                                    strcat(arman_string , "-1");
-                                else
-                                    printf("-1\n");
-                            }
-                            else {
-                                int x = word_finding(all_text , first_pos[0]);
-                                if (is_arman) {
-                                    char num[100];
-                                    sprintf(num , "%d" , x);
-                                    strcat(arman_string , num);
-                                } else {
-                                    printf("%d\n", word_finding(all_text, first_pos[0]));
-                                }
-                            }
+                                printf("-1\n");
                         }
-                    } else {
-                        if (options[3]) {
-                            if (counter == 0) {
-                                if (is_arman)
-                                    strcat(arman_string , "-1");
-                                else
-                                    printf("-1\n");
-                            }
-                            else
-                                for (int i = 0; i != counter; i++) {
-                                    char num[100];
-                                    sprintf(num , "%d" , first_pos);
-                                    if (is_arman) {
-                                        strcat(arman_string , num);
-                                        strcat(arman_string , " ");
-                                    } else
-                                        printf("%d ", first_pos[i]);
-                                }
-                            if (!is_arman)
-                                printf("\n");
-                        } else {
-                            if (1 > counter) {
-                                if (is_arman)
-                                    strcat(arman_string , "-1");
-                                else
-                                    printf("-1\n");
-                            }
-                            else {
+                        else
+                            for (int i = 0; i != counter; i++) {
+                                char num[100];
+                                sprintf(num , "%d" , first_pos);
                                 if (is_arman) {
-                                    char num[100];
-                                    sprintf(num , "%d" , first_pos[0]);
                                     strcat(arman_string , num);
+                                    strcat(arman_string , " ");
                                 } else
-                                    printf("%d\n", first_pos[0]);
+                                    printf("%d ", first_pos[i]);
                             }
+                        if (!is_arman)
+                            printf("\n");
+                    } else {
+                        if (1 > counter) {
+                            if (is_arman)
+                                strcat(arman_string , "-1");
+                            else
+                                printf("-1\n");
+                        }
+                        else {
+                            if (is_arman) {
+                                char num[100];
+                                sprintf(num , "%d" , first_pos[0]);
+                                strcat(arman_string , num);
+                            } else
+                                printf("%d\n", first_pos[0]);
                         }
                     }
                 }
             }
-        } else {
-            if (successful_replace)
-                printf("replace successfully done!\n");
-            else
-                printf("replace failed\n");
+        }
+    } else {
+        if (successful_replace)
+            printf("replace successfully done!\n");
+        else
+            printf("replace failed\n");
+    }
+    fclose(file);
+    if (successful_replace) {
+        file = fopen(pathes, "w");
+        for (int i = 0; i != strlen(all_text); i++) {
+            fputc(all_text[i],file);
         }
         fclose(file);
-        if (successful_replace) {
-            file = fopen(pathes, "w");
-            for (int i = 0; i != strlen(all_text); i++) {
-                fputc(all_text[i],file);
-            }
-            fclose(file);
-        }
-        if(is_arman) {
-            is_arman = false;
-            arman(save);
-        }
+        update_backup_file();
+    }
+    if(is_arman) {
+        is_arman = false;
+        arman(save);
+    }
 }
+
+
 
 int word_finding(char *text , int noc) {
     // noc stands for number of character
@@ -1501,6 +1453,7 @@ void replace(char *command) {
     if (file == NULL)
         return;
     fclose(file);
+    create_dot_file();
     bool options[2] = {false , false};
     int at;
     newcommand += (8 + skip);
@@ -1851,35 +1804,36 @@ void text_comparator(char *command) {
                     printf("%c", all_text2[k]);
                 printf("\n");
             }
-    } else {
-        i++;
-        int lines = 0;
-        for (int k = i; k != strlen(all_text1); k++)
-            if (all_text1[k] == '\n')
-                lines++;
-        if (is_arman) {
-            strcat(arman_string , "<<<<<<<<<<<< #");
-            char num[100];
-            sprintf(num , "%d" , counter);
-            strcat(arman_string , num);
-            strcat(arman_string , " - #");
-            sprintf(num , "%d" , lines + counter);
-            strcat(arman_string , num);
-            strcat(arman_string, " <<<<<<<<<<<<\n");
-            for (int k = i; k != strlen(all_text1); k++) {
-                char x[2] = {all_text1[k] , '\0'};
-                strcat(arman_string , x);
-            }
-            strcat(arman_string , "\n");
         } else {
-            printf("<<<<<<<<<<<< #%d - #%d <<<<<<<<<<<<\n", counter, counter + lines);
+            i++;
+            int lines = 0;
             for (int k = i; k != strlen(all_text1); k++)
-                printf("%c", all_text1[k]);
-            printf("\n");
+                if (all_text1[k] == '\n')
+                    lines++;
+            if (is_arman) {
+                strcat(arman_string , "<<<<<<<<<<<< #");
+                char num[100];
+                sprintf(num , "%d" , counter);
+                strcat(arman_string , num);
+                strcat(arman_string , " - #");
+                sprintf(num , "%d" , lines + counter);
+                strcat(arman_string , num);
+                strcat(arman_string, " <<<<<<<<<<<<\n");
+                for (int k = i; k != strlen(all_text1); k++) {
+                    char x[2] = {all_text1[k] , '\0'};
+                    strcat(arman_string , x);
+                }
+                strcat(arman_string , "\n");
+            } else {
+                printf("<<<<<<<<<<<< #%d - #%d <<<<<<<<<<<<\n", counter, counter + lines);
+                for (int k = i; k != strlen(all_text1); k++)
+                    printf("%c", all_text1[k]);
+                printf("\n");
+            }
         }
     }
-    }
     if (is_arman) {
+        arman_string[strlen(arman_string)-2] = '\0';
         is_arman = false;
         arman(save);
     } else {
@@ -1999,20 +1953,4 @@ void arman(char *command) {
     is_arman2 = false;
 }
 
-
-// eof error in removestr
-// checking pos for all :(
-// backslash gheir mortabet
-// enter and eof is ignored in find
-// bb test is remaining
-// bad position
-// undo without an dollar file
-// undo and undo
-// Za avvale matn ba searche *Za
-// find one word
-// * before one word
-// --str1 and --str2 in replace
-// find one message no two messages
-// undo of auto indent and replace
-// tree bug (in file 1)
-// grep in last word of file
+// Tree bug

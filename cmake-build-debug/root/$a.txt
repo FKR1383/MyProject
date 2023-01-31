@@ -1,1 +1,5 @@
-     int main() { if (1 == 1){printf("Hello world");} }
+int main(void) {int a, b; for (int j = 0; j != a; j++) {if(x == 2) {z++; f++;} for (int k = 0; k != 5; k++) {d++;}}}!= 5; k++) {
+			d++;
+		}
+	}
+}
